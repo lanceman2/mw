@@ -12,20 +12,18 @@
         height: 100%;
         width: 100%;
         border: none;
-    }    
+    } 
     </style>
     <script src="x3dom/x3dom.js"></script>
+    <script src="mw_client.js"></script>
 </head>
 
-<body>
+<body onload="mw_main()">
 
     <x3d>
-        <scene>
+        <scene id=mw_scene>
             <group>
-                <inline url="gnome.x3d"/>
-            </group>
-            <group>
-                <inline url="plane.x3d"/>
+                <inline url="actor/plane.x3d"/>
             </group>
         </scene>
     </x3d>
