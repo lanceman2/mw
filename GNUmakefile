@@ -29,8 +29,8 @@ PREFIX ?= $(PWD)/installed
 jscompress ?= cat
 csscompress ?= cat
 shabang ?= \#!/usr/bin/env node
-port ?= 9999
-s_port ?= 4443
+port ?= 9990
+s_port ?= 4423
 
 build_date = $(shell date)
 

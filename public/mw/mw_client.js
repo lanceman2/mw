@@ -1,3 +1,5 @@
+var _mw = {}; // one stinking global
+
 function mw_fail() {
 
     var text = "Something has gone wrong";
@@ -9,6 +11,7 @@ function mw_fail() {
     throw text;
 }
 
+
 function _mw_assert(val, msg)
 {
     if(!val)
@@ -19,6 +22,7 @@ function _mw_assert(val, msg)
             mw_fail("JavaScript failed");
     }
 }
+
 
 function _mw_getElementById(id) {
 
@@ -146,7 +150,10 @@ function _mw_addX3dActor(url) {
         );
         var actorCalls = _mw_findNodes(this, 'data-mw_call',
                 function(node, attribute) {
-                    return { node: node , call: node.getAttribute(attribute) };
+                    return {
+                        node: node ,
+                        call: node.getAttribute(attribute)
+                    };
                 }
         );
 
@@ -203,7 +210,7 @@ function mw_addActor(url) {
 // permitted from the server.  Command "Creates Subscriptions" to the
 // server.  this is the socket.
 function _mw_createSubscription(decoder) {
-    
+
     _mw_assert(this !== window);
 
     this.emit('subscription', decoder /*TODO*/);
@@ -224,7 +231,7 @@ function _mw_subscribe(obj) {
 // this is the socket.  Subscribed clients will have the decoder already
 // so we do not waist bandwidth resending it again and again.
 // obj should be minimum data needed for client to use.
-function _mw_emitUpdate(obj/*array of objects or single object*/) {
+function _mw_emitUpdates(obj/*array of objects or single object*/) {
 
     _mw_assert(this !== window);
 
@@ -232,11 +239,10 @@ function _mw_emitUpdate(obj/*array of objects or single object*/) {
 }
 
 
-// initiate(socket) called in connect callback.
+// userInit(mw) called in connect callback.
 //
 function mw_init(userInit = function(mw) {
-        },
-        subscription = function(mw, obj) {
+            console.log('MW called default userInit()');
         }) {
 
     // Change 'http' to 'ws' and 'https' to 'wss'
@@ -244,26 +250,30 @@ function mw_init(userInit = function(mw) {
 
     // the mw object inherits the socket.io object
     // the mw object is the socket.io object
-    var socket = new io.connect('');
+    var mw = new io.connect('');
+    // mw is a socket and we add more
+    // client requests to the server
+    mw.CreateSubscription = _mw_createSubscription;
+    mw.Subscribe = _mw_subscribe;
+    mw.EmitUpdates = _mw_emitUpdates;
 
-    socket.on('connect', function(event) {
+    mw.on('connect', function(event) {
         console.log('MW Connected Socket.IO to ' + socketUrl);
-        socket.createSubscription = _mw_createSubscription;
-        socket.emitUpdate = _mw_emitUpdate;
-        socket.subscribe = _mw_subscribe;
+        mw.createSubscription = _mw_createSubscription;
+        mw.emitUpdate = _mw_emitUpdates;
+        mw.subscribe = _mw_subscribe;
         // The users' callback function get to use the mw object
         // that is the socket.
-        userInit(socket);
-        socket.emit('initiate', 'default');
+        mw.emit('initiate', 'default');
     });
-    socket.on('initiate', function(data0) {
+    mw.on('initiate', function(data0) {
         console.log('MW Recieved Socket.IO initiate message ' +
                 data0);
 
+        userInit(mw);
+
         // TODO: find the currently available subscriptions here.
 
-        socket.createSubscription = _mw_createSubscription;
-        socket.emitSubscription = _mw_emitSubscription;
     });
 
     // Incoming socket.on  Commands 
@@ -284,26 +294,30 @@ function mw_init(userInit = function(mw) {
     //                  [] array of channels that we would like to create
     //                  or single
     //
+    //   subscribe:  subscribe to [] array of channels that we would like
+    //               to create or single
+    //
     //
 
-    socket.on('update', function(data) {
+    mw.on('update', function(data) {
         // TODO: Code to receive subscribed data:
         console.log('MW Recieved Socket.IO update message ' +
                 data);
     });
 
-    socket.on('subscription', function(data) {
+    mw.on('subscription', function(data) {
         // TODO: Code to receive possible subscriptions:
         console.log('MW Recieved Socket.IO subscriptions ' +
                 data);
     });
 
-    socket.on('disconnect', function() {				
-        socket.disconnect();
-        socket.removeAllListeners(); // Now it should not reconnect.
-        console.log('MW Socket.IO server at ' + location.host + ' disconnected');
-        delete _mw.socket;
-        _mw.socket = null;
+    mw.on('disconnect', function() {				
+        mw.disconnect();
+        mw.removeAllListeners(); // Now it should not reconnect.
+        console.log('MW Socket.IO server at ' + location.host +
+                ' disconnected');
+        delete mw;
+        mw = null;
     });
 }
 
@@ -320,19 +334,12 @@ function _mw_bodyPreload() {
 }
 
 
-
-function _mw_up
-
-
 // Called from body onload event.
 function mw_main() {
 
     mw_init( /*init()*/function(mw) {
             mw.createSubscription('foo');
             mw_addActor('example.js');
-        },
-        function(mw, subscription) {
-            mw.subscribe(subscription);
         }
     );
 }
