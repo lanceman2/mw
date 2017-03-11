@@ -3,7 +3,7 @@
 hostname = $(shell hostname)
 
 # The file "config.make" is from running ./configure [options]
-# It is not required, and we have default values in this files
+# It is not required, and we have default values in this file
 # if it does not exist.
 -include config.make
 
@@ -151,6 +151,7 @@ $(keys): etc
 $(x3dom_dir):
 	mkdir -p $(x3dom_dir) && (cd $(x3dom_dir) &&\
           wget http://x3dom.org/download/1.7.1/$(x3dom_version).zip &&\
+	  sha256sum -c ../../../$(x3dom_version).zip &&\
           unzip $(x3dom_version).zip) || (rm -rf $(x3dom_dir) ; exit 1)
 
 
