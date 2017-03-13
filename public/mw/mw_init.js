@@ -4,14 +4,10 @@
 
 
 // one stinking global
-var _mw = { 
-    
-    lastClient: null,
+var _mw = {
 
-    // atomic check flag variable.
-    haveLastClient: true,
-
-    connectionCount: 0 // number of times we make a socket.io socket.
+    connectionCount: 0, // number of times we make a socket.io socket.
+    client_userInitFunc: null
 };
 
 
@@ -28,10 +24,9 @@ function mw_fail() {
 }
 
 
-function _mw_assert(val, msg)
-{
-    if(!val)
-    {
+function _mw_assert(val, msg) {
+
+    if(!val) {
         if(msg)
             mw_fail(msg);
         else
@@ -100,11 +95,14 @@ function _mw_runFunctions(actorCalls)
 
 function _mw_addScript(src, onload = null) {
 
-    console.log('MW Adding Script src= ' + src);
+    console.log('MW Adding Script src= ' + src + ' with arg: ' + onload);
     var script = document.createElement('script');
     document.head.appendChild(script);
+    if(typeof(onload) === 'function')
+        script.onload = onload;
+    else
+        script.Arg = onload;
     script.src = src;
-    script.onload = onload;
 }
 
 
@@ -116,7 +114,8 @@ function _mw_addCss(href, onload = null) {
     link.setAttribute("rel", "stylesheet");
     link.setAttribute("type", "text/css");
     link.setAttribute("href", href)
-    link.onload = onload;
+    if(typeof(onload) === 'function')
+        link.onload = onload;
 }
 
 
@@ -179,7 +178,7 @@ function _mw_addX3d(url, onload = null) {
         // attributes we load the scripts and run the "mw_call" functions.
         _mw_addScripts(actorScripts, actorCalls);
 
-        if(onload)
+        if(typeof(onload) === 'function')
             onload(this);
     };
 
@@ -203,9 +202,21 @@ function _mw_addX3d(url, onload = null) {
     _mw.scene.appendChild(group);
 }
 
-function mw_addActor(url, onload = null) {
 
-    console.log('MW Adding Actor: ' + url);
+// Add a node from a served file:
+//
+//    <inline> for .x3d
+//    <script> for .js
+//    <link>   for .css
+//
+//  url is:
+//
+//    1. full path
+//    2. relative to document.currentScript if not in handler
+//    3. scriptNode.Dir/url if in a handler in a mw_addActor()
+//       loaded script file
+//
+function mw_addActor(url, onload = null) {
 
     // TODO: consider adding a query part to the URL
 
@@ -227,14 +238,22 @@ function mw_addActor(url, onload = null) {
 }
 
 
-// (TODO) This must verify the that this subscription creation is
-// permitted from the server.  Command "Creates Subscriptions" to the
-// server.  this is the socket.
-function _mw_createSubscription(decoder) {
+function _mw_getSubscriptions() {
 
     _mw_assert(this !== window);
 
     this.emit('subscription', decoder /*TODO*/);
+}
+
+
+// (TODO) This must verify the that this subscription creation is
+// permitted from the server.  Command "Creates Subscriptions" to the
+// server.  this is the socket.
+function _mw_createSubscription(encoder, decoder) {
+
+    _mw_assert(this !== window);
+
+    this.emit('subscription', encoder, decoder);
 }
 
 function _mw_subscribe(obj) {
@@ -263,9 +282,21 @@ function _mw_emitUpdates(obj/*array of objects or single object*/) {
 function _mw_currentScriptAddress() {
 
     // document.currentScript is not defined in script handlers.
-    _mw_assert(document.currentScript, 'you cannot get the current script in a handler');
+    _mw_assert(document.currentScript,
+            'you cannot get the current script in a handler');
     return document.currentScript.
                 src.replace(/^.*:\/\//, '').replace(/\/.*$/, '');
+}
+
+
+// returns a string that is the URL without the filename
+// and including the last '/'.
+// This will not work in a callback function.
+function mw_getCurrentScriptPrefix() {
+
+    _mw_assert(document.currentScript,
+            'you cannot get the current script in a handler');
+    return document.currentScript.src.replace(/[^\/]*$/,'');
 }
 
 
@@ -275,69 +306,43 @@ function _mw_currentScriptAddress() {
 // TODO: This makes an object that is not exposed outside this
 // function scope.  Do we need to make this a client constructor function?
 function mw_client(userInit = function(mw) {
-            console.log('MW called default userInit()');
+            console.log('MW called default userInit('+mw+')');
         },
         opts = {}) {
 
-    if(typeof(userInit) === 'string') {
-        // Another way to call this function.
-        opts.address = userInit;
-        var userInit = function(mw) {
-            console.log('MW called default userInit()');
-        };
+    var defaultUrl = opts.url = location.protocol + '//' +
+            location.hostname + ':' + location.port;
+
+    if(opts.url === undefined)
+        opts.url = defaultUrl;
+
+    if(opts.url !== defaultUrl) {
+
+        // This will connect to a remote server.
+
+        // keep trying until _mw.client_userInitFunc is not set
+        if(typeof(_mw.client_userInitFunc) === 'function') {
+
+            setTimeout(function() {
+                mw_client(userInit, {url: opts.url});
+            }, 200/* x 1 seconds/1000*/);
+            return null;
+        }
+
+        // This _mw.client_userInitFunc is pulled from /mw/mw_client.js
+        _mw.client_userInitFunc = userInit;
+        mw_addActor(opts.url + '/mw/mw_client.js');
+        return null; // cannot return an object in this case.
     }
 
-    if(opts.address === undefined) {
-        if(document.currentScript)
-            // Get the hostname from the currentScript
-            opts.address = _mw_currentScriptAddress();
-        else
-            opts.address = location.host;
 
-    } else if(!_mw.haveLastClient) {
-        // This is hard to do: we want to run this function in a different
-        // script that is from a different server and get a returned value
-        // to the code that called this function.  To do this we must wait
-        // for the returned value here.  This shows that the javaScript
-        // interpreter runs more than one thread of javaScript at a time,
-        // if not this script would hang here forever.  This does not
-        // necessarily mean that the threads run concurrently, just that
-        // there are "threads", whatever the hell they really are in the
-        // operating system.
-        //
-        // Looks like socket.io will return the same connection object
-        // for a given server.  I'd call that a little too intrusive.
-        //
-        // We get the connection from javaScript on a server that is not
-        // the server that served the mw_init.js file and nor did the
-        // script that called mw_client() come from this server.  So we
-        // must bootstrap the mw_client() call like so:
-
-        _mw.lastClient = null;
-
-        // This flag blocks re entrance into this if block.
-        _mw.haveLastClient = false;
-
-        // This mw_addActor() will cause another javaScript thread to call
-        // this mw_client() function.
-        mw_addActor(location.protocol + '//' + opts.address + '/mw/mw_client.js');
-
-        hold = true;
-        while(hold)
-            setTimeout(function() {if(_mw_haveLastClient) hold = false;},
-                    100/* x 1/1000  seconds*/)
-
-        var mw = _mw.lastClient;
-        _mw.lastClient = null;
-        return mw;
-    }
-
-    console.log('MW Socket.IO trying to connect to:' + opts.address);
+    console.log('MW Socket.IO trying to connect to:' + opts.url);
 
     // the mw object inherits the socket.io object
     // the mw object is the socket.io object
     //
-    var mw = new io.connect(opts.address, {'sync disconnect on unload': true });;
+    var mw = new io.connect(opts.url, {'sync disconnect on unload': true });
+
     // mw is a socket and we add more
     // client requests to the server
     mw.ConnectionCount = ++_mw.connectionCount;
@@ -346,7 +351,7 @@ function mw_client(userInit = function(mw) {
     mw.EmitUpdates = _mw_emitUpdates;
 
     mw.on('connect', function(event) {
-        console.log('MW Connected Socket.IO to: ' + opts.address);
+        console.log('MW Connected Socket.IO to: ' + opts.url);
         // The users' callback function get to use the mw object
         // that is the socket.
         mw.emit('initiate', 'default');
@@ -355,7 +360,7 @@ function mw_client(userInit = function(mw) {
         console.log('MW Recieved Socket.IO initiate message ' +
                 data0);
 
-        userInit(mw);
+        userInit(this);
 
         // TODO: find the currently available subscriptions here.
 
@@ -368,7 +373,7 @@ function mw_client(userInit = function(mw) {
     //
     //   subscription:  Pops up when available subscriptions change
     //                  [] array of channels that we may subscribe to
-    //
+    //_mw_assert(
     //
     // Outgoing socket.emit Commands
     //
@@ -399,7 +404,7 @@ function mw_client(userInit = function(mw) {
     mw.on('disconnect', function() {				
         mw.disconnect();
         mw.removeAllListeners(); // Now it should not reconnect.
-        console.log('MW Socket.IO server at ' + opts.address +
+        console.log('MW Socket.IO server at ' + opts.url +
                 ' disconnected');
         delete mw;
         mw = null;
@@ -416,7 +421,13 @@ function _mw_bodyPreload() {
     mw_addActor('x3dom/x3dom.css');
     mw_addActor('x3dom/x3dom.js');
     mw_addActor('/socket.io/socket.io.js');
-    mw_addActor('mw_client_default.css');
+    mw_addActor('mw_client_default.css',
+            function() {
+                setTimeout(function(){
+                    console.log('mw_client_default.css finished loading');
+                }, 10000);
+            }
+    );
 }
 
 
@@ -429,22 +440,18 @@ _mw_bodyPreload();
 // Called from body onload event.
 function mw_init() {
 
-    // TODO: Just test code from here down
-    // connect to world 1
-    var mw1 = mw_client( /*init()*/function(mw) {
-        mw.CreateSubscription('foo');
-        mw_addActor('example.js');
+    if(location.search.match(/.*(\?|\&)file=.*/) != -1)
+        var url = location.search.replace(/.*(\?|\&)file=/,'').
+            replace(/\&.*$/g, '');
+
+    if(typeof url == undefined || url.length < 1) {
+        // The default mode
+        // This is the only place that we declare this.
+        var url = 'mw_default.js';
+    }
+
+    mw_client(/*on initiate*/function(mw) {
+
+        mw_addActor(url, mw);
     });
-
-    // TODO: Just test code from here down
-
-    // connect to world 2
-    var mw2 = mw_client('localhost:8888');
-
-    mw_client();
-
-    mw_addActor('mw_client.js'); // Now we have 4 connects
-
-
-    // We have 4 clients connected to two different servers.
 }

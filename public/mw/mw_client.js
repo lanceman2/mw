@@ -3,8 +3,15 @@
 // more that one Mirror Worlds server connection.  So we can watch updates
 // from other virtual worlds.
 
-// On firefox, console.log() fails to work if this is called from a script
-// from another server.
-console.log(' ---------------######################- ScriptAddress=' + _mw_currentScriptAddress());
-_mw.lastClient = mw_client();
-_mw.haveLastClient = true;
+_mw_assert(typeof(_mw.client_userInitFunc) === 'function');
+
+// Get the first part of the URL to this server.
+var url = document.currentScript.src.match(/^http(s|)//[^\/]*\//, '');
+
+_mw_assert(url && url.length);
+
+url = url[0];
+
+mw_client(_mw.client_userInitFunc, {address: url});
+
+_mw.client_userInitFunc = null;
