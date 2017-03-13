@@ -7,7 +7,9 @@
 var _mw = {
 
     connectionCount: 0, // number of times we make a socket.io socket.
-    client_userInitFunc: null
+    client_userInitFunc: null,
+    actorOnload: null,
+    actorFiles: []
 };
 
 
@@ -95,7 +97,7 @@ function _mw_runFunctions(actorCalls)
 
 function _mw_addScript(src, onload = null) {
 
-    console.log('MW Adding Script src= ' + src + ' with arg: ' + onload);
+    console.log('MW Adding Script src= ' + src);
     var script = document.createElement('script');
     document.head.appendChild(script);
     if(typeof(onload) === 'function')
@@ -205,7 +207,7 @@ function _mw_addX3d(url, onload = null) {
 
 // Add a node from a served file:
 //
-//    <inline> for .x3d
+//    <inline> for .x3d added to <scene>
 //    <script> for .js
 //    <link>   for .css
 //
@@ -216,11 +218,64 @@ function _mw_addX3d(url, onload = null) {
 //    3. scriptNode.Dir/url if in a handler in a mw_addActor()
 //       loaded script file
 //
-function mw_addActor(url, onload = null) {
+function mw_addActor(url = null, onload = null) {
 
     // TODO: consider adding a query part to the URL
 
-    var suffix = url.replace(/^.*\./g, '').toLowerCase();
+    if(url === null) {
+        if(!_mw.actorOnload && 
+                _mw.actorFiles.length > 0) {
+            // This is a flush command
+            mw_addActor(_mw.actorFiles.shift(),
+                    function(node) {
+                        console.log('MW Actor flushing');
+                    }
+            );
+
+        }
+        // Nothing to flush or we are flushing it already.
+        return;
+    }
+
+    if(onload === null) {
+        _mw.actorFiles.push(url);
+        return;
+    } 
+
+    if(!_mw.actorOnload && _mw.actorFiles.length > 0) {
+
+        _mw.actorFiles.push(url);
+
+        console.log('MW starting Actor loading of series: ' +
+                _mw.actorFiles);
+
+        var url1 = _mw.actorFiles.shift();
+       
+        console.log('MW starting ' + url1);
+
+        var wrapLoadFunc = function(node) {
+
+            var Url = _mw.actorFiles.shift();
+
+            if(_mw.actorFiles.length > 0) {
+                _mw_assert(Url && Url.length > 0);
+                mw_addActor(Url, wrapLoadFunc);
+            } else {
+                // This is the last in the series.
+                var Onload = _mw.actorOnload;
+                // reset
+                _mw.actorOnload = null;
+                mw_addActor(Url, Onload); // series done.
+            }
+        };
+
+        _mw.actorOnload = onload;
+        // now add the chosen one.
+        mw_addActor(url1, wrapLoadFunc);
+        return;
+    }
+
+    var suffix = url.replace(/^.*\./g, '').toLowerCase(); 
 
     switch (suffix) {
         case 'x3d':
@@ -305,6 +360,8 @@ function mw_getCurrentScriptPrefix() {
 // userInit(mw) called in connect callback.
 // TODO: This makes an object that is not exposed outside this
 // function scope.  Do we need to make this a client constructor function?
+//
+// opts { url: 'url' }
 function mw_client(userInit = function(mw) {
             console.log('MW called default userInit('+mw+')');
         },
@@ -323,16 +380,20 @@ function mw_client(userInit = function(mw) {
         // keep trying until _mw.client_userInitFunc is not set
         if(typeof(_mw.client_userInitFunc) === 'function') {
 
+            console.log('MW waiting to connect to: ' + opts.url);
+            // Try again later.
             setTimeout(function() {
                 mw_client(userInit, {url: opts.url});
-            }, 200/* x 1 seconds/1000*/);
+            }, 400/* x 1 seconds/1000*/);
             return null;
         }
 
-        // This _mw.client_userInitFunc is pulled from /mw/mw_client.js
+        // This _mw.client_userInitFunc is changed back to null in
+        // /mw/mw_client.js
+
         _mw.client_userInitFunc = userInit;
         mw_addActor(opts.url + '/mw/mw_client.js');
-        return null; // cannot return an object in this case.
+        return null; // We cannot return an object in this case.
     }
 
 
@@ -349,6 +410,7 @@ function mw_client(userInit = function(mw) {
     mw.CreateSubscription = _mw_createSubscription;
     mw.Subscribe = _mw_subscribe;
     mw.EmitUpdates = _mw_emitUpdates;
+    mw.url = opts.url;
 
     mw.on('connect', function(event) {
         console.log('MW Connected Socket.IO to: ' + opts.url);
@@ -360,7 +422,7 @@ function mw_client(userInit = function(mw) {
         console.log('MW Recieved Socket.IO initiate message ' +
                 data0);
 
-        userInit(this);
+        userInit(mw);
 
         // TODO: find the currently available subscriptions here.
 
@@ -414,32 +476,9 @@ function mw_client(userInit = function(mw) {
 }
 
 
-function _mw_bodyPreload() {
+function _mw_init() {
 
-    // This stuff is required to be loaded before the page onload is called,
-    // so we call it now.
-    mw_addActor('x3dom/x3dom.css');
-    mw_addActor('x3dom/x3dom.js');
-    mw_addActor('/socket.io/socket.io.js');
-    mw_addActor('mw_client_default.css',
-            function() {
-                setTimeout(function(){
-                    console.log('mw_client_default.css finished loading');
-                }, 10000);
-            }
-    );
-}
-
-
-// Call this now before the body onload function so that it's all
-// loaded before the body onload function mw_init() gets called.
-// We could use callbacks to do this, but this is way less coding.
-_mw_bodyPreload();
-
-
-// Called from body onload event.
-function mw_init() {
-
+    // Parse the URL query:
     if(location.search.match(/.*(\?|\&)file=.*/) != -1)
         var url = location.search.replace(/.*(\?|\&)file=/,'').
             replace(/\&.*$/g, '');
@@ -452,6 +491,20 @@ function mw_init() {
 
     mw_client(/*on initiate*/function(mw) {
 
-        mw_addActor(url, mw);
+        // When this is executed all the stuff is loaded.
+        mw_addActor(url);
+        mw_addActor(); // flush it.
     });
+}
+
+
+// Called from body onload event.
+function mw_init() {
+
+    // This stuff is required to be loaded before the page onload is called,
+    // so we call it now.
+    mw_addActor('x3dom/x3dom.css');
+    mw_addActor('x3dom/x3dom.js');
+    mw_addActor('/socket.io/socket.io.js');
+    mw_addActor('mw_client_default.css', function(node) { _mw_init(); });
 }

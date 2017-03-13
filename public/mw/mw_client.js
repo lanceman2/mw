@@ -3,15 +3,30 @@
 // more that one Mirror Worlds server connection.  So we can watch updates
 // from other virtual worlds.
 
-_mw_assert(typeof(_mw.client_userInitFunc) === 'function');
+// To use add:
+//
+//        mw_client(callback, {opt: remoteURL});
+//
+// where remoteURL is to the other Mirror Worlds server,
+// like http://example.com
 
-// Get the first part of the URL to this server.
-var url = document.currentScript.src.match(/^http(s|)//[^\/]*\//, '');
 
-_mw_assert(url && url.length);
+// Give a hoot don't pollute. The name space.
+(function() {
 
-url = url[0];
+    _mw_assert(typeof(_mw.client_userInitFunc) === 'function',
+            'Coding logic error in ' + document.currentScript.src);
 
-mw_client(_mw.client_userInitFunc, {address: url});
+    // Get the first part of the URL to this server.
+    var url = document.currentScript.src.match(/^http(s|)//[^\/]*\//, '');
 
-_mw.client_userInitFunc = null;
+    _mw_assert(url && url.length, 'cannot get service from ' +
+            document.currentScript.src);
+
+    url = url[0];
+
+    mw_client(_mw.client_userInitFunc, {url: url});
+
+    _mw.client_userInitFunc = null;
+
+})();

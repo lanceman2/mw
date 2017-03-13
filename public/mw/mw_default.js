@@ -3,18 +3,18 @@
 // where mw is the mirror worlds client from mw_client().
 
 
-mw_addActor('actor/examples/plane.x3d');
-mw_addActor('actor/examples/gnome.x3d');
-
 
 // Run this after this script is loaded which is after the mirror worlds
 // client is setup.
-document.currentScript.onload = function() {
+(function() {
 
-    // We indirectly get arguments from the script object.
-    var mw = this.Arg; // mw is the mirror worlds client
+    mw_addActor('actor/examples/plane.x3d');
+    mw_addActor('actor/examples/gnome.x3d');
 
-    mw_addActor('subscription/clientNavigationFollow.js', mw);
+    mw_addActor('subscription/clientNavigationFollow.js',
+            function() {
 
-    console.log('mw_default.js load handler finished');
-}
+                console.log('mw_default.js load handler finished');
+            }
+    );
+})();
