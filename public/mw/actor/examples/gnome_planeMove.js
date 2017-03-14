@@ -13,15 +13,11 @@
 
         // This is where we really need prefix since the context of a
         // handler call has no associated script node.
-        mw_addActor(prefix + 'plane.x3d', function(inlineNode) {
-
-            // To stop infinite recursion, because move() re-parents the
-            // node, causing a reload.
-            inlineNode.onload = null;
+        mw_addActor(prefix + 'plane.x3d', function(groupNode) {
 
             // This is called when we have the move function and the x3d
             // inline node both loaded.
-            move(inlineNode);
+            move(groupNode);
         });
     });
 })();

@@ -8,13 +8,16 @@
 // client is setup.
 (function() {
 
-    mw_addActor('actor/examples/plane.x3d');
-    mw_addActor('actor/examples/gnome.x3d');
+    var pre = mw_getCurrentScriptPrefix();
 
-    mw_addActor('subscription/clientNavigationFollow.js',
+    mw_addActor(pre+'actor/examples/plane.x3d');
+    mw_addActor(pre+'actor/examples/gnome.x3d');
+
+    mw_addActor(pre+'subscription/clientNavigationFollow.js',
             function() {
 
-                console.log('mw_default.js load handler finished');
-            }
+                console.log(pre+'mw_default.js load handler finished');
+            },
+            { avatorUrl: pre+'actor/avatar/teapot.x3d' }
     );
 })();

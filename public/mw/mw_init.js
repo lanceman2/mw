@@ -8,8 +8,9 @@ var _mw = {
 
     connectionCount: 0, // number of times we make a socket.io socket.
     client_userInitFunc: null,
-    actorLastOnload: null,
-    actorFiles: []
+    addActor_blocked: false,
+    actorFiles: [],
+    actorOpts: []
 };
 
 
@@ -95,20 +96,23 @@ function _mw_runFunctions(actorCalls)
 }
 
 
-function _mw_addScript(src, onload = null) {
+function _mw_addScript(src, onload, opts) {
 
     console.log('MW Adding Script src= ' + src);
     var script = document.createElement('script');
     document.head.appendChild(script);
-    if(typeof(onload) === 'function')
-        script.onload = onload;
-    else
-        script.Arg = onload;
+    script.onload = onload;
+    // script._mw_opts = opts Is how to pass arbitrary data to a script
+    // we have not loaded yet.
+    script._mw_opts = opts;
     script.src = src;
+    script.onerror = function() {
+        mw_fail(script.src + ' failed to load');
+    };
 }
 
 
-function _mw_addCss(href, onload = null) {
+function _mw_addCss(href, onload) {
 
     console.log('MW Adding CSS href= ' + href);
     var link = document.createElement('link');
@@ -116,15 +120,17 @@ function _mw_addCss(href, onload = null) {
     link.setAttribute("rel", "stylesheet");
     link.setAttribute("type", "text/css");
     link.setAttribute("href", href)
-    if(typeof(onload) === 'function')
-        link.onload = onload;
+    link.onload = onload;
+    link.onerror = function() {
+        mw_fail(href + ' failed to load');
+    };
 }
 
 
 // actorScriptUrls and actorCalls are arrays of strings.
-function _mw_addScripts(actorScriptUrls, actorCalls = null) {
+function _mw_addScripts(actorScriptUrls, actorCalls, opts) {
 
-    if(actorCalls && actorCalls.length) {
+    if(actorCalls && actorCalls.length > 0) {
         
         var count = actorScriptUrls.length;
         var check = function() {
@@ -140,24 +146,57 @@ function _mw_addScripts(actorScriptUrls, actorCalls = null) {
 
     actorScriptUrls.forEach( function(src) {
 
-        _mw_addScript(src, check);
+        _mw_addScript(src, check, opts);
     });
 }
 
 
-function _mw_addX3d(url, onload = null) {
+function _mw_addX3d(url, onload = null,
+        opts = null) {
 
-    var group = document.createElement('group');
+    if(opts === null)
+        opts = { containerNodeType: 'group' };
+    if(opts.containerNodeType === undefined || opts.containerNodeType === null)
+        opts.containerNodeType = 'group';
+
+    if(opts.parentNode ===  undefined || opts.parentNode === null)
+        var group = document.createElement(opts.containerNodeType);
+    else
+        var group = opts.parentNode;
+
     _mw_assert(group);
+
     var inline = document.createElement('inline');
     _mw_assert(inline);
     inline.setAttribute("namespacename", url);
-    inline.setAttribute("url", url);
+
+    inline.onerror = function() {
+        mw_fail(url + ' failed to load');
+    };
+
+    group.appendChild(inline);
+ 
+    if(_mw.scene === undefined) {
+        var scenes = _mw_findNodes(
+                document.getElementsByTagName("BODY")[0], 'SCENE',
+            function (node, nodeName) {
+                return node; // what to return in an array
+            },
+            function (node, nodeName) {
+                // The test function
+                return node.nodeName === nodeName;
+            }
+        );
+        _mw_assert(scenes.length === 1, 'scenes=' + scenes);
+        _mw.scene = scenes[0];
+    }
+
+    _mw.scene.appendChild(group);
 
     inline.onload = function() {
 
         var dir = inline.url.replace(/[^\/]*$/, '');
-        var actorScripts = _mw_findNodes(this, 'data-mw_script',
+        var actorScripts = _mw_findNodes(inline, 'data-mw_script',
                 function(node, attribute) {
                     var src = node.getAttribute(attribute);
                     if(src.substr(0,1) !== '/') {
@@ -178,30 +217,38 @@ function _mw_addX3d(url, onload = null) {
 
         // if the xd3 file had data-mw_script and/or data-mw_call
         // attributes we load the scripts and run the "mw_call" functions.
-        _mw_addScripts(actorScripts, actorCalls);
+        _mw_addScripts(actorScripts, actorCalls, opts);
 
-        if(typeof(onload) === 'function')
-            onload(this);
+        inline.onload = null;
+        //inline.url = null; // this brakes this code.  Why??
+
+        if(typeof(onload) === 'function') {
+            onload(group);
+        }
+
     };
 
-    group.appendChild(inline);
+    inline.setAttribute('url', url);
+}
 
-    if(_mw.scene === undefined) {
-        var scenes = _mw_findNodes(
-                document.getElementsByTagName("BODY")[0], 'SCENE',
-            function (node, nodeName) {
-                return node; // what to return in an array
-            },
-            function (node, nodeName) {
-                // The test function
-                return node.nodeName === nodeName;
-            }
-        );
-        _mw_assert(scenes.length === 1, 'scenes=' + scenes);
-        _mw.scene = scenes[0];
+
+function _mw_addActor(url, onload = null, opts = null) {
+
+    var suffix = url.replace(/^.*\./g, '').toLowerCase(); 
+
+    switch (suffix) {
+        case 'x3d':
+            _mw_addX3d(url, onload, opts);
+            return;
+        case 'js':
+            _mw_addScript(url, onload, opts);
+            return;
+        case 'css':
+            _mw_addCss(url, onload);
+            return;
+        default:
+            console.log('MW Unknown Actor type: ' + url);
     }
-
-    _mw.scene.appendChild(group);
 }
 
 
@@ -218,17 +265,18 @@ function _mw_addX3d(url, onload = null) {
 //    3. scriptNode.Dir/url if in a handler in a mw_addActor()
 //       loaded script file
 //
-function mw_addActor(url = null, onload = null) {
+function mw_addActor(url = null, onload = null, opts = null) {
 
     // TODO: consider adding a query part to the URL
-    
-    console.log('mw_addActor(' + url + ', ' + onload);
+
+    //console.log('mw_addActor(' + url + ', ' + onload, opts);
 
     if(url === null) {
         if(_mw.actorFiles.length > 0) {
             // This is a flush command
             console.log('MW Actor flushing:' + _mw.actorFiles);
-            mw_addActor(_mw.actorFiles.shift(),function(node) {});
+            mw_addActor(_mw.actorFiles.pop(),function(node) {},
+                    _mw.actorOpts.pop());
         }
         // Nothing to flush or we are flushing it already.
         return;
@@ -236,57 +284,38 @@ function mw_addActor(url = null, onload = null) {
 
     if(onload === null) {
         _mw.actorFiles.push(url);
+        _mw.actorOpts.push(opts);
         return;
     }
 
-    console.log('----------- url=' + url + ' \n  ' +onload);
+    //console.log('----------- url=' + url + ' \n  ' +onload);
 
-    if(!_mw.actorLastOnload && _mw.actorFiles.length > 0) {
+    if(_mw.actorFiles.length > 0) {
 
-        _mw.actorFiles.push(url);
+        // we have a onload.
 
-        console.log('MW starting Actor loading of series: ' +
-                _mw.actorFiles);
+        console.log('MW Actor loading series: ' +
+                _mw.actorFiles + ',' + url);
 
-        var url1 = _mw.actorFiles.shift();
+        var actorFilesCount = _mw.actorFiles.length;
+        var Url;
+        var Opts;
+        while((Url = _mw.actorFiles.shift())) {
+            Opts = _mw.actorOpts.shift();
+            _mw_addActor(Url, function(node) {
+                    if(--actorFilesCount === 0) {
+                        _mw_addActor(url, onload, opts);
+                    }
+            }, Opts);
+        }
 
-        var wrapLoadFunc = function(node) {
+        // _mw.actorFiles.length === 0
+        // _mw.actorOpts.length === 0
 
-            var Url = _mw.actorFiles.shift();
-
-            if(_mw.actorFiles.length > 0) {
-                _mw_assert(Url && Url.length > 0);
-                mw_addActor(Url, wrapLoadFunc);
-            } else {
-                // This is the last in the series.
-                var Onload = _mw.actorLastOnload;
-                // reset
-                _mw.actorLastOnload = null;
-                mw_addActor(Url, Onload); // series done.
-            }
-        };
-
-        _mw.actorLastOnload = onload;
-        // now add the chosen one.
-        mw_addActor(url1, wrapLoadFunc);
         return;
     }
 
-    var suffix = url.replace(/^.*\./g, '').toLowerCase(); 
-
-    switch (suffix) {
-        case 'x3d':
-            _mw_addX3d(url, onload);
-            return;
-        case 'js':
-            _mw_addScript(url, onload);
-            return;
-        case 'css':
-            _mw_addCss(url, onload);
-            return;
-        default:
-            console.log('MW Unknown Actor type: ' + url);
-    }
+    _mw_addActor(url, onload, opts);
 }
 
 
@@ -341,13 +370,22 @@ function _mw_currentScriptAddress() {
 }
 
 
+function mw_getScriptOpts() {
+
+    _mw_assert(document.currentScript,
+            'you cannot get the current script in a handler');
+    return document.currentScript._mw_opts;
+}
+
+
 // returns a string that is the URL without the filename
 // and including the last '/'.
 // This will not work in a callback function.
 function mw_getCurrentScriptPrefix() {
 
     _mw_assert(document.currentScript,
-            'you cannot get the current script in a handler');
+            'mw_getCurrentScriptPrefix(): you cannot get ' +
+            'the current script in a handler');
     return document.currentScript.src.replace(/[^\/]*$/,'');
 }
 
@@ -372,8 +410,6 @@ function mw_client(userInit = function(mw) {
 
     if(opts.url !== defaultUrl && _mw.remoteURL !== opts.url) {
 
-        console.log('FUCK url=' + opts.url);
-
         // This will connect to a remote server.
 
         // keep trying until _mw.client_userInitFunc is not set
@@ -394,6 +430,7 @@ function mw_client(userInit = function(mw) {
         // /mw/mw_client.js
 
         _mw.client_userInitFunc = userInit;
+        // It's not known when this script gets loaded
         mw_addActor(opts.url + '/mw/mw_client.js', userInit);
         return null; // We cannot return an object in this case.
     }
@@ -495,9 +532,8 @@ function _mw_init() {
     mw_client(/*on initiate*/function(mw) {
 
         // When this is executed all the stuff is loaded.
-        mw_addActor(url, function() {
-            mw_addActor(); // flush it.
-        });
+        mw_addActor(url);
+        mw_addActor(); // flush it.
     });
 }
 
