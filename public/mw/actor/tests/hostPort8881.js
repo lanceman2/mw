@@ -5,7 +5,7 @@ mw_addActor('actor/examples/gnome.x3d');
 mw_client(
         function(mw) {
             
-            console.log('another Mirror Worlds host' + wm.url);
+            console.log('MW added Mirror Worlds connection ' + mw.url);
         },
         { url: 'http://localhost:8881'}
 );

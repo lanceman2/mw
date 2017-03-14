@@ -8,7 +8,7 @@ var _mw = {
 
     connectionCount: 0, // number of times we make a socket.io socket.
     client_userInitFunc: null,
-    actorOnload: null,
+    actorLastOnload: null,
     actorFiles: []
 };
 
@@ -221,17 +221,14 @@ function _mw_addX3d(url, onload = null) {
 function mw_addActor(url = null, onload = null) {
 
     // TODO: consider adding a query part to the URL
+    
+    console.log('mw_addActor(' + url + ', ' + onload);
 
     if(url === null) {
-        if(!_mw.actorOnload && 
-                _mw.actorFiles.length > 0) {
+        if(_mw.actorFiles.length > 0) {
             // This is a flush command
-            mw_addActor(_mw.actorFiles.shift(),
-                    function(node) {
-                        console.log('MW Actor flushing');
-                    }
-            );
-
+            console.log('MW Actor flushing:' + _mw.actorFiles);
+            mw_addActor(_mw.actorFiles.shift(),function(node) {});
         }
         // Nothing to flush or we are flushing it already.
         return;
@@ -240,9 +237,11 @@ function mw_addActor(url = null, onload = null) {
     if(onload === null) {
         _mw.actorFiles.push(url);
         return;
-    } 
+    }
 
-    if(!_mw.actorOnload && _mw.actorFiles.length > 0) {
+    console.log('----------- url=' + url + ' \n  ' +onload);
+
+    if(!_mw.actorLastOnload && _mw.actorFiles.length > 0) {
 
         _mw.actorFiles.push(url);
 
@@ -250,8 +249,6 @@ function mw_addActor(url = null, onload = null) {
                 _mw.actorFiles);
 
         var url1 = _mw.actorFiles.shift();
-       
-        console.log('MW starting ' + url1);
 
         var wrapLoadFunc = function(node) {
 
@@ -262,14 +259,14 @@ function mw_addActor(url = null, onload = null) {
                 mw_addActor(Url, wrapLoadFunc);
             } else {
                 // This is the last in the series.
-                var Onload = _mw.actorOnload;
+                var Onload = _mw.actorLastOnload;
                 // reset
-                _mw.actorOnload = null;
+                _mw.actorLastOnload = null;
                 mw_addActor(Url, Onload); // series done.
             }
         };
 
-        _mw.actorOnload = onload;
+        _mw.actorLastOnload = onload;
         // now add the chosen one.
         mw_addActor(url1, wrapLoadFunc);
         return;
@@ -367,32 +364,37 @@ function mw_client(userInit = function(mw) {
         },
         opts = {}) {
 
-    var defaultUrl = opts.url = location.protocol + '//' +
+    var defaultUrl = location.protocol + '//' +
             location.hostname + ':' + location.port;
 
     if(opts.url === undefined)
         opts.url = defaultUrl;
 
-    if(opts.url !== defaultUrl) {
+    if(opts.url !== defaultUrl && _mw.remoteURL !== opts.url) {
+
+        console.log('FUCK url=' + opts.url);
 
         // This will connect to a remote server.
 
         // keep trying until _mw.client_userInitFunc is not set
         if(typeof(_mw.client_userInitFunc) === 'function') {
 
-            console.log('MW waiting to connect to: ' + opts.url);
+                        console.log('MW waiting to connect to: ' + opts.url);
             // Try again later.
             setTimeout(function() {
+                // Interesting, this is recursion without adding to the
+                // function call stack.  Or is it still called recursion?
                 mw_client(userInit, {url: opts.url});
             }, 400/* x 1 seconds/1000*/);
-            return null;
+            return null; // See this is returning (popping this call)
+            // before we call mw_client() again.
         }
 
         // This _mw.client_userInitFunc is changed back to null in
         // /mw/mw_client.js
 
         _mw.client_userInitFunc = userInit;
-        mw_addActor(opts.url + '/mw/mw_client.js');
+        mw_addActor(opts.url + '/mw/mw_client.js', userInit);
         return null; // We cannot return an object in this case.
     }
 
@@ -419,7 +421,8 @@ function mw_client(userInit = function(mw) {
         mw.emit('initiate', 'default');
     });
     mw.on('initiate', function(data0) {
-        console.log('MW Recieved Socket.IO initiate message ' +
+        console.log('MW Recieved Socket.IO initiate message from ' +
+                mw.url + ':\n  ' +
                 data0);
 
         userInit(mw);
@@ -492,8 +495,9 @@ function _mw_init() {
     mw_client(/*on initiate*/function(mw) {
 
         // When this is executed all the stuff is loaded.
-        mw_addActor(url);
-        mw_addActor(); // flush it.
+        mw_addActor(url, function() {
+            mw_addActor(); // flush it.
+        });
     });
 }
 

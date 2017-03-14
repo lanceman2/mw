@@ -18,14 +18,18 @@
             'Coding logic error in ' + document.currentScript.src);
 
     // Get the first part of the URL to this server.
-    var url = document.currentScript.src.match(/^http(s|)//[^\/]*\//, '');
+    var url = document.currentScript.src.match(/^http(s|)\:\/\/[^\/]*/, '');
 
     _mw_assert(url && url.length, 'cannot get service from ' +
             document.currentScript.src);
 
     url = url[0];
 
+    console.log('MW adding client with url: ' + url);
+
+    _mw.remoteURL = url;
     mw_client(_mw.client_userInitFunc, {url: url});
+    _mw.remoteURL = null;
 
     _mw.client_userInitFunc = null;
 
