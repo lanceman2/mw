@@ -16,18 +16,10 @@
     mw_assert(mw, 'mw client object not passed to' +
             pre+'clientNavigationFollow.js');
 
-    function decode(message) {
+    function subscribe() {
 
-        console.log('nav decode(' + message + ')');
+        console.log('nav subscribe()');
     }
-
-    function encode(message) {
-
-        console.log('nav encode(' + message + ')');
-
-        return {  };
-    }
-
 
     if(typeof opts.avatorUrl === 'undefined' || opts.avatorUrl === null)
         // Default avatar
@@ -39,7 +31,7 @@
 
         transformNode.setAttribute("translation", "0 0 5");
 
-        mw.CreateSubscription(encode, decode);
+        mw.CreateSubscription(subscribe);
 
         },{
             containerNodeType: 'Transform'

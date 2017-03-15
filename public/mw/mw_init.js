@@ -365,7 +365,9 @@ function _mw_createSubscription(encode, decode) {
 
     mw_assert(this !== window);
 
-    this.emit('createSubscription', {encode: encode, decode: decode });
+    encode = encode.toString();
+
+    this.emit('createSubscription', {encode: encode, decode: 'decode' }, 'foo');
 }
 
 function _mw_subscribe(obj) {

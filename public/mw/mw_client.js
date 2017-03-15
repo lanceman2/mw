@@ -14,13 +14,13 @@
 // Give a hoot don't pollute. The name space.
 (function() {
 
-    _mw_assert(typeof(_mw.client_userInitFunc) === 'function',
+    mw_assert(typeof(_mw.client_userInitFunc) === 'function',
             'Coding logic error in ' + document.currentScript.src);
 
     // Get the first part of the URL to this server.
     var url = document.currentScript.src.match(/^http(s|)\:\/\/[^\/]*/, '');
 
-    _mw_assert(url && url.length, 'cannot get service from ' +
+    mw_assert(url && url.length, 'cannot get service from ' +
             document.currentScript.src);
 
     url = url[0];
