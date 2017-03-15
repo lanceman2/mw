@@ -31,7 +31,7 @@
 
         transformNode.setAttribute("translation", "0 0 5");
 
-        mw.CreateSubscription(subscribe);
+        mw.CreateSubscription([ 1, { foo: 'foo' }, 3, 4 ]);
 
         },{
             containerNodeType: 'Transform'

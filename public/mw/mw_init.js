@@ -361,13 +361,13 @@ function _mw_getSubscriptions(decoder) {
 // (TODO) This must verify the that this subscription creation is
 // permitted from the server.  Command "Creates Subscriptions" to the
 // server.  this is the socket.
-function _mw_createSubscription(encode, decode) {
+function _mw_createSubscription(obj) {
 
     mw_assert(this !== window);
 
-    encode = encode.toString();
+    //obj = obj.toString();
 
-    this.emit('createSubscription', {encode: encode, decode: 'decode' }, 'foo');
+    this.emit('createSubscription', obj);
 }
 
 function _mw_subscribe(obj) {
@@ -507,9 +507,8 @@ function mw_client(userInit = function(mw) {
     });
     mw.on('createSubscription', function(obj) {
         // TODO: Code
-        console.log('MW Recieved Socket.IO subscriptions:' +
-                 '\n  encode=' + obj.encode +
-                 '\n  decode=' + obj.decode);
+        console.log('MW Recieved Socket.IO createSubscription:' +
+                 '\n  obj=' + obj);
     });
 
 
