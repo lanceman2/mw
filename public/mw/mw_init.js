@@ -27,7 +27,7 @@ function mw_fail() {
 }
 
 
-function _mw_assert(val, msg) {
+function mw_assert(val, msg) {
 
     if(!val) {
         if(msg)
@@ -104,6 +104,7 @@ function _mw_addScript(src, onload, opts) {
     script.onload = onload;
     // script._mw_opts = opts Is how to pass arbitrary data to a script
     // we have not loaded yet.
+
     script._mw_opts = opts;
     script.src = src;
     script.onerror = function() {
@@ -164,10 +165,10 @@ function _mw_addX3d(url, onload = null,
     else
         var group = opts.parentNode;
 
-    _mw_assert(group);
+    mw_assert(group);
 
     var inline = document.createElement('inline');
-    _mw_assert(inline);
+    mw_assert(inline);
     inline.setAttribute("namespacename", url);
 
     inline.onerror = function() {
@@ -187,7 +188,7 @@ function _mw_addX3d(url, onload = null,
                 return node.nodeName === nodeName;
             }
         );
-        _mw_assert(scenes.length === 1, 'scenes=' + scenes);
+        mw_assert(scenes.length === 1, 'scenes=' + scenes);
         _mw.scene = scenes[0];
     }
 
@@ -319,9 +320,39 @@ function mw_addActor(url = null, onload = null, opts = null) {
 }
 
 
-function _mw_getSubscriptions() {
+function _mw_currentScriptAddress() {
 
-    _mw_assert(this !== window);
+    // document.currentScript is not defined in script handlers.
+    mw_assert(document.currentScript,
+            'you cannot get the current script in a handler');
+    return document.currentScript.
+                src.replace(/^.*:\/\//, '').replace(/\/.*$/, '');
+}
+
+
+// returns a string that is the URL without the filename
+// and including the last '/'.
+// This will not work in a callback function.
+function mw_getCurrentScriptPrefix() {
+
+    mw_assert(document.currentScript,
+            'mw_getCurrentScriptPrefix(): you cannot get ' +
+            'the current script in a handler');
+    return document.currentScript.src.replace(/[^\/]*$/,'');
+}
+
+
+function mw_getScriptOpts() {
+
+    mw_assert(document.currentScript,
+            'you cannot get the current script in a handler');
+    return document.currentScript._mw_opts;
+}
+
+
+function _mw_getSubscriptions(decoder) {
+
+    mw_assert(this !== window);
 
     this.emit('subscription', decoder /*TODO*/);
 }
@@ -330,19 +361,19 @@ function _mw_getSubscriptions() {
 // (TODO) This must verify the that this subscription creation is
 // permitted from the server.  Command "Creates Subscriptions" to the
 // server.  this is the socket.
-function _mw_createSubscription(encoder, decoder) {
+function _mw_createSubscription(encode, decode) {
 
-    _mw_assert(this !== window);
+    mw_assert(this !== window);
 
-    this.emit('subscription', encoder, decoder);
+    this.emit('createSubscription', {encode: encode, decode: decode });
 }
 
 function _mw_subscribe(obj) {
 
-    _mw_assert(this !== window);
+    mw_assert(this !== window);
 
     // TODO:
-    
+
     console.log('subscribe(' + obj + ')');
 }
 
@@ -354,39 +385,9 @@ function _mw_subscribe(obj) {
 // obj should be minimum data needed for client to use.
 function _mw_emitUpdates(obj/*array of objects or single object*/) {
 
-    _mw_assert(this !== window);
+    mw_assert(this !== window);
 
     this.emit('update', obj/*TODO*/);
-}
-
-
-function _mw_currentScriptAddress() {
-
-    // document.currentScript is not defined in script handlers.
-    _mw_assert(document.currentScript,
-            'you cannot get the current script in a handler');
-    return document.currentScript.
-                src.replace(/^.*:\/\//, '').replace(/\/.*$/, '');
-}
-
-
-function mw_getScriptOpts() {
-
-    _mw_assert(document.currentScript,
-            'you cannot get the current script in a handler');
-    return document.currentScript._mw_opts;
-}
-
-
-// returns a string that is the URL without the filename
-// and including the last '/'.
-// This will not work in a callback function.
-function mw_getCurrentScriptPrefix() {
-
-    _mw_assert(document.currentScript,
-            'mw_getCurrentScriptPrefix(): you cannot get ' +
-            'the current script in a handler');
-    return document.currentScript.src.replace(/[^\/]*$/,'');
 }
 
 
@@ -475,7 +476,7 @@ function mw_client(userInit = function(mw) {
     //
     //   subscription:  Pops up when available subscriptions change
     //                  [] array of channels that we may subscribe to
-    //_mw_assert(
+    //
     //
     // Outgoing socket.emit Commands
     //
@@ -497,11 +498,18 @@ function mw_client(userInit = function(mw) {
                 data);
     });
 
-    mw.on('subscription', function(data) {
+    mw.on('subscription', function(obj) {
         // TODO: Code to receive possible subscriptions:
-        console.log('MW Recieved Socket.IO subscriptions ' +
-                data);
+        console.log('MW Recieved Socket.IO subscription: \n  ' +
+                 '\n  obj=' + obj);
     });
+    mw.on('createSubscription', function(obj) {
+        // TODO: Code
+        console.log('MW Recieved Socket.IO subscriptions:' +
+                 '\n  encode=' + obj.encode +
+                 '\n  decode=' + obj.decode);
+    });
+
 
     mw.on('disconnect', function() {				
         mw.disconnect();
@@ -518,21 +526,23 @@ function mw_client(userInit = function(mw) {
 
 function _mw_init() {
 
+    var url = null;
+
     // Parse the URL query:
     if(location.search.match(/.*(\?|\&)file=.*/) != -1)
-        var url = location.search.replace(/.*(\?|\&)file=/,'').
+        url = location.search.replace(/.*(\?|\&)file=/,'').
             replace(/\&.*$/g, '');
 
-    if(typeof url == undefined || url.length < 1) {
+    if(url === null || url.length < 1) {
         // The default mode
         // This is the only place that we declare this.
-        var url = 'mw_default.js';
+        url = 'mw_default.js';
     }
 
     mw_client(/*on initiate*/function(mw) {
 
         // When this is executed all the stuff is loaded.
-        mw_addActor(url);
+        mw_addActor(url, null, { mw: mw } );
         mw_addActor(); // flush it.
     });
 }

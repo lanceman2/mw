@@ -10,14 +10,11 @@
 
     var pre = mw_getCurrentScriptPrefix();
 
-    mw_addActor(pre+'actor/examples/plane.x3d');
-    mw_addActor(pre+'actor/examples/gnome.x3d');
+    mw_addActor(pre+'actor/example/plane.x3d');
+    mw_addActor(pre+'actor/example/gnome.x3d');
 
-    mw_addActor(pre+'subscription/clientNavigationFollow.js',
-            function() {
+    // TODO: add navigation following
 
-                console.log(pre+'mw_default.js load handler finished');
-            },
-            { avatorUrl: pre+'actor/avatar/teapot.x3d' }
-    );
+    mw_addActor(); // flush
+
 })();

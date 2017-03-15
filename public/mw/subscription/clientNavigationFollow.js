@@ -5,28 +5,41 @@
 
 (function() {
 
+
     var pre = mw_getCurrentScriptPrefix();
 
     // document.currentScript is not defined in callbacks so we get the
     // script options here now, like so:
     var opts = mw_getScriptOpts();
+    var mw = opts.mw;
 
-    function encode(message) {
-
-        return { type: 'navigration'};
-    }
+    mw_assert(mw, 'mw client object not passed to' +
+            pre+'clientNavigationFollow.js');
 
     function decode(message) {
 
-        console.log('decode(' + message + ')');
+        console.log('nav decode(' + message + ')');
     }
 
+    function encode(message) {
+
+        console.log('nav encode(' + message + ')');
+
+        return {  };
+    }
+
+
+    if(typeof opts.avatorUrl === 'undefined' || opts.avatorUrl === null)
+        // Default avatar
+        opts.avatorUrl = pre+'../actor/avatar/teapot.x3d';
 
     mw_addActor(opts.avatorUrl, function(transformNode) {
 
         // The avatar is loaded now under this transform Node.
 
         transformNode.setAttribute("translation", "0 0 5");
+
+        mw.CreateSubscription(encode, decode);
 
         },{
             containerNodeType: 'Transform'
