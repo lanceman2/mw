@@ -64,7 +64,9 @@ built_css_files = $(patsubst %.cs,%.css,$(wildcard public/mw/*.cs))
 keys = etc/key.pem etc/cert.pem
 
 # version of x3dom to install
-x3dom_version = x3dom-1.7.1
+x3dom_version = 1.7.1
+
+x3dom_name = x3dom-$(x3dom_version)
 # The directory where we unzip the x3dom files
 x3dom_dir = public/mw/x3dom
 
@@ -150,9 +152,9 @@ $(keys): etc
 
 $(x3dom_dir):
 	mkdir -p $(x3dom_dir) && (cd $(x3dom_dir) &&\
-          wget http://x3dom.org/download/1.7.1/$(x3dom_version).zip &&\
-	  sha256sum -c ../../../$(x3dom_version).zip &&\
-          unzip $(x3dom_version).zip) || (rm -rf $(x3dom_dir) ; exit 1)
+          wget http://x3dom.org/download/$(x3dom_version)/$(x3dom_name).zip &&\
+	  sha256sum -c ../../../$(x3dom_name).zip.sha256 &&\
+          unzip $(x3dom_name).zip) || exit 1
 
 
 %.js: %.jsp
