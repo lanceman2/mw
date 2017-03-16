@@ -24,7 +24,7 @@
             document.currentScript.src);
 
     // ws://example.com:2345:/bla/bla or wss://example.com:2345:/bla/bla
-    url = url[0].replace(/^http/,'ws');
+    // url = url[0].replace(/^http/,'ws');
 
     console.log('MW adding client with url: ' + url);
 
