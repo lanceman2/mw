@@ -349,50 +349,6 @@ function mw_getScriptOpts() {
     return document.currentScript._mw_opts;
 }
 
-
-function _mw_getSubscriptions(decoder) {
-
-    mw_assert(this !== window);
-
-    this.emit('subscription', decoder /*TODO*/);
-}
-
-
-// (TODO) This must verify the that this subscription creation is
-// permitted from the server.  Command "Creates Subscriptions" to the
-// server.  this is the socket.
-function _mw_createSubscription(obj) {
-
-    mw_assert(this !== window);
-
-    //obj = obj.toString();
-
-    this.emit('createSubscription', obj);
-}
-
-function _mw_subscribe(obj) {
-
-    mw_assert(this !== window);
-
-    // TODO:
-
-    console.log('subscribe(' + obj + ')');
-}
-
-
-// update from this client to the server writing subscription channels
-// from this client to the server.
-// this is the socket.  Subscribed clients will have the decoder already
-// so we do not waist bandwidth resending it again and again.
-// obj should be minimum data needed for client to use.
-function _mw_emitUpdates(obj/*array of objects or single object*/) {
-
-    mw_assert(this !== window);
-
-    this.emit('update', obj/*TODO*/);
-}
-
-
 // This is the Mirror Worlds client factory function
 //
 // userInit(mw) called in connect callback.
@@ -404,9 +360,12 @@ function mw_client(userInit = function(mw) {
             console.log('MW called default userInit('+mw+')');
         },
         opts = {}) {
+   
+    // We handle protocols: http: https: ws: wss:
+    // The http(s) protocols are converted to ws: or wss:
 
-    var defaultUrl = location.protocol + '//' +
-            location.hostname + ':' + location.port;
+    var defaultUrl = location.protocol.replace(/^http/, 'ws') +
+        '//' + location.hostname + ':' + location.port + '/';
 
     if(opts.url === undefined)
         opts.url = defaultUrl;
@@ -443,83 +402,41 @@ function mw_client(userInit = function(mw) {
 
     // the mw object inherits the socket.io object
     // the mw object is the socket.io object
-    //
-    var mw = new io.connect(opts.url, {'sync disconnect on unload': true });
 
-    // mw is a socket and we add more
-    // client requests to the server
-    mw.ConnectionCount = ++_mw.connectionCount;
-    mw.CreateSubscription = _mw_createSubscription;
-    mw.Subscribe = _mw_subscribe;
-    mw.EmitUpdates = _mw_emitUpdates;
+    var mw = new WebSocket(opts.url);
+
     mw.url = opts.url;
 
-    mw.on('connect', function(event) {
-        console.log('MW Connected Socket.IO to: ' + opts.url);
-        // The users' callback function get to use the mw object
-        // that is the socket.
-        mw.emit('initiate', 'default');
-    });
-    mw.on('initiate', function(data0) {
-        console.log('MW Recieved Socket.IO initiate message from ' +
-                mw.url + ':\n  ' +
-                data0);
+    mw.onopen = function(e) {
+
+        console.log('MW WebSocket connected to ' + mw.url);
+
+        // TODO: add a timeout handler to happen before this
+        // event if this event takes to long.
 
         userInit(mw);
+    }
 
-        // TODO: find the currently available subscriptions here.
+    mw.Send = function(message) {
 
-    });
+        // TODO: more here.
+        mw.send(message);
+    }
 
-    // Incoming socket.on  Commands 
-    //
-    //   update:  Get subscribed data in an array of subscriptions
-    //            [] array of channels
-    //
-    //   subscription:  Pops up when available subscriptions change
-    //                  [] array of channels that we may subscribe to
-    //
-    //
-    // Outgoing socket.emit Commands
-    //
-    //   update:  Put subscription data from this client as a source
-    //            [] array of channels or single
-    //
-    //   subscription:  Creates subscriptions
-    //                  [] array of channels that we would like to create
-    //                  or single
-    //
-    //   subscribe:  subscribe to [] array of channels that we would like
-    //               to create or single
-    //
-    //
+    mw.onmessage = function(e) {
 
-    mw.on('update', function(data) {
-        // TODO: Code to receive subscribed data:
-        console.log('MW Recieved Socket.IO update message ' +
-                data);
-    });
+        console.log('MW WebSocket message from ' + mw.url +
+                '\n   ' + e.data);
+        // TODO: lots more here.
+    }
 
-    mw.on('subscription', function(obj) {
-        // TODO: Code to receive possible subscriptions:
-        console.log('MW Recieved Socket.IO subscription: \n  ' +
-                 '\n  obj=' + obj);
-    });
-    mw.on('createSubscription', function(obj) {
-        // TODO: Code
-        console.log('MW Recieved Socket.IO createSubscription:' +
-                 '\n  obj=' + obj);
-    });
+    mw.onclose = function(e) {
 
+        console.log('MW WebSocket close to ' + mw.url);
+    }
 
-    mw.on('disconnect', function() {				
-        mw.disconnect();
-        mw.removeAllListeners(); // Now it should not reconnect.
-        console.log('MW Socket.IO server at ' + opts.url +
-                ' disconnected');
-        delete mw;
-        mw = null;
-    });
+    // pretty good webSocket tutorial.
+    // http://cjihrig.com/blog/how-to-use-websockets/
 
     return mw;
 }
@@ -556,6 +473,5 @@ function mw_init() {
     // so we call it now.
     mw_addActor('x3dom/x3dom.css');
     mw_addActor('x3dom/x3dom.js');
-    mw_addActor('/socket.io/socket.io.js');
     mw_addActor('mw_client_default.css', function(node) { _mw_init(); });
 }

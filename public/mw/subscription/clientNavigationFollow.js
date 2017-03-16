@@ -31,8 +31,8 @@
 
         transformNode.setAttribute("translation", "0 0 5");
 
-        mw.CreateSubscription([ 1, { foo: 'foo' }, 3, 4 ]);
-
+        mw.Send('create nav substription');
+        
         },{
             containerNodeType: 'Transform'
         }
