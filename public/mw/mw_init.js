@@ -227,6 +227,7 @@ function _mw_addX3d(url, onload = null,
             onload(group);
         }
 
+        console.log('MW loaded ' + url);
     };
 
     inline.setAttribute('url', url);
@@ -407,36 +408,68 @@ function mw_client(userInit = function(mw) {
 
     mw.url = opts.url;
 
+    mw.onCalls = {};
+
+    mw.on = function(name, func) {
+
+        mw.onCalls[name] = func;
+    };
+
     mw.onopen = function(e) {
 
-        console.log('MW WebSocket connected to ' + mw.url);
+        console.log('MW connected to ' + mw.url);
 
         // TODO: add a timeout handler to happen before this
         // event if this event takes to long.
 
         userInit(mw);
-    }
+    };
 
-    mw.Send = function(message) {
+    mw.emit = function(name, data) {
 
-        // TODO: more here.
-        mw.send(message);
-    }
+        var name = arguments.shift();
+        mw.send(JSON.stringify({ name: name, arguments }));
+    };
 
     mw.onmessage = function(e) {
 
-        console.log('MW WebSocket message from ' + mw.url +
-                '\n   ' + e.data);
-        // TODO: lots more here.
-    }
+        //console.log('MW WebSocket message from '
+        //        + mw.url + '\n   ' + e.data);
+
+        var obj = JSON.parse(e.data);
+        var name = obj.name;
+
+        // We should have this form:
+        // e.data = { name: eventName, args:  [ {}, {}, {}, ... ] }
+        if(name === undefined || obj.args === undefined || !(obj.args instanceof Array)) {
+            console.log('array=' + (obj.args.isArray && obj.args.isArray()));
+            mw_fail('MW Bad WebSocket "on" message from ' + mw.url +
+                    '\n  ' + e.data);
+        }
+
+        if(mw.onCalls[name] === undefined)
+            mw_fail('MW WebSocket on callback "' + name +
+                    '" not found for message from ' + mw.url + ':' +
+                    '\n  ' + e.data);
+
+        // Call the on callback function using array spread syntax.
+        //https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Operators/Spread_operator
+        (mw.onCalls[name])(...obj.args);
+    };
 
     mw.onclose = function(e) {
 
-        console.log('MW WebSocket close to ' + mw.url);
-    }
+        console.log('MW closed to ' + mw.url);
+    };
 
-    // pretty good webSocket tutorial.
+    // pretty good client webSocket tutorial.
     // http://cjihrig.com/blog/how-to-use-websockets/
+
+    mw.on('initiate', function(message) {
+
+        console.log('MW from ' + mw.url +
+                '/n   ' + message);
+    });
 
     return mw;
 }
@@ -473,5 +506,5 @@ function mw_init() {
     // so we call it now.
     mw_addActor('x3dom/x3dom.css');
     mw_addActor('x3dom/x3dom.js');
-    mw_addActor('mw_client_default.css', function(node) { _mw_init(); });
+    mw_addActor('mw_default.css', function(node) { _mw_init(); });
 }

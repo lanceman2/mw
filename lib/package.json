@@ -4,7 +4,7 @@
   "description": "server for mirror Worlds",
   "main": "mw_server.js",
   "dependencies": {
-    "ws": "1.1.1",
+    "ws": "2.2.0",
     "csv": "^0.4.6"
   },
   "devDependencies": {
