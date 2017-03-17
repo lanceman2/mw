@@ -415,20 +415,11 @@ function mw_client(userInit = function(mw) {
         mw.onCalls[name] = func;
     };
 
-    mw.onopen = function(e) {
-
-        console.log('MW connected to ' + mw.url);
-
-        // TODO: add a timeout handler to happen before this
-        // event if this event takes to long.
-
-        userInit(mw);
-    };
-
     mw.emit = function(name, data) {
 
-        var name = arguments.shift();
-        mw.send(JSON.stringify({ name: name, arguments }));
+        var args = [].slice.call(arguments);
+        name = args.shift();
+        mw.send(JSON.stringify({ name: name, args: args }));
     };
 
     mw.onmessage = function(e) {
@@ -441,10 +432,10 @@ function mw_client(userInit = function(mw) {
 
         // We should have this form:
         // e.data = { name: eventName, args:  [ {}, {}, {}, ... ] }
-        if(name === undefined || obj.args === undefined || !(obj.args instanceof Array)) {
-            console.log('array=' + (obj.args.isArray && obj.args.isArray()));
-            mw_fail('MW Bad WebSocket "on" message from ' + mw.url +
-                    '\n  ' + e.data);
+        if(name === undefined || obj.args === undefined ||
+                !(obj.args instanceof Array)) {
+            mw_fail('MW Bad WebSocket "on" message from ' +
+                    mw.url + '\n  ' + e.data);
         }
 
         if(mw.onCalls[name] === undefined)
@@ -462,13 +453,35 @@ function mw_client(userInit = function(mw) {
         console.log('MW closed to ' + mw.url);
     };
 
+    mw.onopen = function(e) {
+
+        console.log('MW connected to ' + mw.url);
+
+        // TODO: add a timeout handler to happen before this
+        // event if this event takes to long.
+
+        userInit(mw);
+
+        mw.emit('initiate', 'hello', 'mirror worlds');
+    };
+
     // pretty good client webSocket tutorial.
     // http://cjihrig.com/blog/how-to-use-websockets/
 
-    mw.on('initiate', function(message) {
+    mw.on('initiate', function(hello, there) {
 
-        console.log('MW from ' + mw.url +
-                '/n   ' + message);
+        console.log('MW initiate from ' + mw.url +
+                '\n   ' + hello +
+                '\n   ' + there);
+    });
+
+    mw.on('subscriptions', function(subArray) {
+
+        console.log('MW users from ' + mw.url + ':');
+        subArray.forEach(function(avator) {
+            console.log('  ' + avator.name + ' ' +
+                    avator.actorUrl);
+        });
     });
 
     return mw;
