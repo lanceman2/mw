@@ -6,7 +6,7 @@
 // one stinking global
 var _mw = {
 
-    connectionCount: 0, // number of times we make a socket.io socket.
+    connectionCount: 0, // number of times we make a webSocket connection
     client_userInitFunc: null,
     addActor_blocked: false,
     actorFiles: [],
@@ -399,10 +399,10 @@ function mw_client(userInit = function(mw) {
     }
 
 
-    console.log('MW Socket.IO trying to connect to:' + opts.url);
+    console.log('MW WebSocket trying to connect to:' + opts.url);
 
-    // the mw object inherits the socket.io object
-    // the mw object is the socket.io object
+    // the mw object inherits the WebSocket object
+    // the mw object is the WebSocket object
 
     var mw = new WebSocket(opts.url);
 
@@ -418,7 +418,7 @@ function mw_client(userInit = function(mw) {
     mw.emit = function(name, data) {
 
         var args = [].slice.call(arguments);
-        name = args.shift();
+        var name = args.shift();
         mw.send(JSON.stringify({ name: name, args: args }));
     };
 
@@ -488,6 +488,9 @@ function mw_client(userInit = function(mw) {
 }
 
 
+// WebRTC
+// https://www.html5rocks.com/en/tutorials/webrtc/basics/
+// https://www.w3.org/TR/webrtc/
 function _mw_init() {
 
     var url = null;
@@ -515,8 +518,6 @@ function _mw_init() {
 // Called from body onload event.
 function mw_init() {
 
-    // This stuff is required to be loaded before the page onload is called,
-    // so we call it now.
     mw_addActor('x3dom/x3dom.css');
     mw_addActor('x3dom/x3dom.js');
     mw_addActor('mw_default.css', function(node) { _mw_init(); });
