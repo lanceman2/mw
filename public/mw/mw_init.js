@@ -155,6 +155,10 @@ function _mw_addScripts(actorScriptUrls, actorCalls, opts) {
 function _mw_addX3d(url, onload = null,
         opts = null) {
 
+    // We are not able to load a inline without putting it in a group of
+    // some kind.  If we do not, some of the attributes of the children of
+    // the inline seem to just disappear.  It must be a x3dom BUG.
+
     if(opts === null)
         opts = { containerNodeType: 'group' };
     if(opts.containerNodeType === undefined || opts.containerNodeType === null)
@@ -221,7 +225,6 @@ function _mw_addX3d(url, onload = null,
         _mw_addScripts(actorScripts, actorCalls, opts);
 
         inline.onload = null;
-        //inline.url = null; // this brakes this code.  Why??
 
         if(typeof(onload) === 'function') {
             onload(group);

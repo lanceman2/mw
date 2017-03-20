@@ -34,7 +34,7 @@
         mw.Send('create nav substription');
         
         },{
-            containerNodeType: 'Transform'
+            containerNodeType: 'transform'
         }
     );
 
