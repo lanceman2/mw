@@ -2,6 +2,19 @@
 
 
 
+
+
+## Terms
+
+### source
+
+javaScript that provides data to the server which relays it to the clients
+
+### sink
+
+javaScript that reads data from the server
+
+
 ## JavaScript Interfaces
 
 
