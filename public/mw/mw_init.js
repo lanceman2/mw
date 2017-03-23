@@ -254,11 +254,12 @@ function _mw_addX3d(url, onload = null,
 
         inline.onload = null;
 
-        if(typeof(onload) === 'function') {
-            onload(group);
-        }
 
-        console.log('MW loaded ' + url);
+        if(typeof(onload) === 'function') {
+            console.log('MW loaded ' + url + ' calling load handler');
+            onload(group);
+        } else
+            console.log('MW loaded ' + url + ' no load handler');
     };
 
     inline.setAttribute('url', url);
@@ -484,7 +485,7 @@ function mw_client(userInit = function(mw) {
     };
 
     // Sends through the server to clients 
-    mw.sendPayload(serverSourceId, data) {
+    mw.sendPayload = function(serverSourceId, data) {
 
         var args = [].slice.call(arguments);
         var id = args.shift();
@@ -493,7 +494,7 @@ function mw_client(userInit = function(mw) {
                     { args: args }));
     };
 
-    mw.recvPayload(serverSourceId, func) {
+    mw.recvPayload = function(serverSourceId, func) {
 
         mw.recvCalls[serverSourceId] = func;
     };
@@ -504,6 +505,7 @@ function mw_client(userInit = function(mw) {
         //console.log('MW WebSocket message from '
         //        + mw.url + '\n   ' + e.data);
 
+        var message = e.data;
         // Is this a Payload to just send to clients that subscribe?
         // Look for 'P' the magic constant.
         if(message.substr(0, 1) === 'P') {
@@ -539,7 +541,6 @@ function mw_client(userInit = function(mw) {
 
             return;
         }
-
 
         var obj = JSON.parse(e.data);
         var name = obj.name;
@@ -597,13 +598,13 @@ function mw_client(userInit = function(mw) {
     });
 
     mw.SourceId = 0;
-    mw.CreateSourceFunc = {};
+    mw.CreateSourceFuncs = {};
 
-    mw.createSource(shortName, description, jsSinkSrc, func) {
+    mw.createSource = function(shortName, description, jsSinkSrc, func) {
 
         var sourceId = (++mw.SourceId).toString(); // client source ID
-        mw.CreateSourceFunc[sourceId] = func;
-
+        mw.CreateSourceFuncs[sourceId] = func;
+        // Ask the server to create a new source of data
         mw._emit('createSource', sourceId, shortName, description, jsSinkSrc);
     };
 
@@ -611,13 +612,13 @@ function mw_client(userInit = function(mw) {
         function(clientSourceId, serverSourceId, shortName,
             description, jsSinkSrc) {
 
-            var func = mw.CreateSourceFunc[sourceId];
+            var func = mw.CreateSourceFuncs[sourceId];
             // The shortName and description may be modified by the server
             // and are returned in this callback to the javaScript that
             // called mw.createSource().
             func(serverSourceId, shortName, description);
             // We are done with this function.
-            delete mw.CreateSourceFunc[sourceId];
+            delete mw.CreateSourceFuncs[sourceId];
         }
     );
 

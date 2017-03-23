@@ -18,17 +18,13 @@
 
     var pre = mw_getCurrentScriptPrefix();
     var src = mw_getCurrentScriptSrc();
-
-    // document.currentScript is not defined in callbacks so we get the
-    // script options here now, like so:
     var opts = mw_getScriptOpts();
     var mw = opts.mw;
 
-    // Required option:
+    // Check that required options are present.
     mw_assert(mw, 'mw client object not passed to' + src);
     mw_assert(typeof opts.body !== 'undefined', 'no body given to ' + src);
     mw_assert(typeof opts.listener !== 'string', 'no listener given to ' + src);
-
 
     mw.createSource('shortName', 'description',
             pre+'../sink/body_3pos_4rot.js' /*jsSinkSrc*/,
@@ -38,7 +34,7 @@
             opts.body.addEventListener(opts.listener,
                 function(e) {
 
-                    // Send this to the subscribers.
+                    // Send this to the subscribers in this handler.
                     mw.sendPayload(serverSourceId,
                         body.getAttribute('position'),
                         // TODO: in other parts of x3dom they call it
