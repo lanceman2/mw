@@ -18,6 +18,9 @@
 
     <h3>Examples</h3>
 
+    <p>These examples are intended to be examples of Mirror Worlds user
+    code, a tutorial if you will.</p>
+
     <ul>
         <li><a href="world.html">world.html default example</a></li>
         <li><a
@@ -27,18 +30,24 @@
             move 2</a></li>
     </ul>
 
-    <h3>Tests</h3>
+    <h3>Developer Tests</h3>
 
     <ul>
-        <li><a
-            href="world.html?file=test/hostPort8881.js">2
-            connections 2 servers</a> Run another server via:
-        <pre>./mw_server --http_port=8881 --https_port=8883</pre> and then
-        click the above link</li>
+        <li> Run another server via:
+            <pre>./mw_server --http_port=8881 --https_port=8883</pre> and then
+            click <a
+            href="world.html?file=test/additionalHost_Port8881.js">2
+            connections</a></li>
         <li><a href="world.html?file=actor/example/gnome_planeMove.js">gnome
                 and moving plane</a></li>
-        <li><a href="world.html?file=test/navFollow.js">nav
-                follow</a></li>
+        <li>This is the first test of the Source/Sink architecture.
+            Open these two links in separate windows or tabs:
+            <a href="world.html?file=test/viewpointSource.js">viewpoint
+                source</a> writes a veiwpoint as a position and rotation
+            as you navigate through the scene
+            <a href="world.html?file=test/viewpointSink.js">viewpoint
+                sink</a> reads and sets the viewpoint
+        </li>
      </ul>
 
 </body>
