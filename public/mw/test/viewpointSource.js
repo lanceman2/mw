@@ -25,7 +25,7 @@
             console.log(src + ' finished setting up');
         },
         {
-            // options for body_3pos_4rot.js
+            // options for source body_3pos_4rot.js
             //
             body: mw_getCurrentViewpoint(), // get pos and rot from body
             listener: 'viewpointChanged',   // event to listen to

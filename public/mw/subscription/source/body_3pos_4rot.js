@@ -24,28 +24,23 @@
     // Check that required options are present.
     mw_assert(mw, 'mw client object not passed to' + src);
     mw_assert(typeof opts.body !== 'undefined', 'no body given to ' + src);
-    mw_assert(typeof opts.listener !== 'string', 'no listener given to ' + src);
+    mw_assert(typeof opts.listener === 'string', 'no listener given to ' + src);
 
-    mw.createSource('shortName', 'description',
+    var description = 'rigid body position';
+    var body = opts.body;
+
+    mw.createSource('body_pos_rot', description,
             pre+'../sink/body_3pos_4rot.js' /*jsSinkSrc*/,
-        function(serverSourceId, shortName, description) {
+        function(serverSourceId, shortName) {
  
             // We have approval from the server now we setup a handler.
-            opts.body.addEventListener(opts.listener,
+            body.addEventListener(opts.listener,
                 function(e) {
 
                     // Send this to the subscribers in this handler.
-                    mw.sendPayload(serverSourceId,
-                        body.getAttribute('position'),
-                        // TODO: in other parts of x3dom they call it
-                        // rotation (not orientation).  We may need to
-                        // wrap this, or add an interface that deals with
-                        // the different names.
-                        body.getAttribute('orientation'));
+                    mw.sendPayload(serverSourceId, e.position, e.orientation);
                 }
             );
         }
     );
-
-    console.log(src + ' setup handler');
 })();

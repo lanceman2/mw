@@ -13,13 +13,18 @@
     mw_assert(mw, 'mw client object not passed to' + src);
     mw_assert(typeof serverSourceId !== 'undefined', 'no source ID given to ' + src);
 
+    var viewpoint = mw_getCurrentViewpoint();
 
     // register a handler for the incoming data.
-    mw.recvPayload(serverSourceId, function(position, rotation) {
-        console.log('MW received ' + opts.shortName + '\n   ' +
-                'position: ' + position + '\n   ' +
-                'rotation: ' + rotation);
-    });
+    mw.recvPayload(serverSourceId,
+        // receive function
+        function(pos, rot) {
 
-    console.log(src + ' setup handler');
+            viewpoint.setAttribute('position', pos.x + ' ' + pos.y + ' ' + pos.z);
+            viewpoint.setAttribute('orientation', rot[0].x + ' ' + rot[0].y + ' ' +
+                rot[0].z + ' ' + rot[1]);
+        },
+        // removeSubscription function
+        function() { console.log('Removed subscription for ' + src); }
+    );
 })();

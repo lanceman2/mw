@@ -115,9 +115,9 @@ function mw_getCurrentViewpoint()
 	viewpoint = document.createElement("viewpoint");
 	var scene = x3d.getElementsByTagName("Scene");
 
-	mw_getScene.appendChild(viewpoint);
-        viewpoint.setAttribute("position", "2 1.5 5");
-	viewpoint.setAttribute("orientation", "0 0 0 0");
+	mw_getScene().appendChild(viewpoint);
+        //viewpoint.setAttribute("position", "2 1.5 5");
+	//viewpoint.setAttribute("orientation", "0 0 0 0");
     }
     _mw.viewpoint = viewpoint;
     return viewpoint;
@@ -471,6 +471,7 @@ function mw_client(userInit = function(mw) {
 
     mw.onCalls = {};
     mw.recvCalls = {};
+    mw.removeCalls = {};
 
     mw.on = function(name, func) {
 
@@ -489,14 +490,16 @@ function mw_client(userInit = function(mw) {
 
         var args = [].slice.call(arguments);
         var id = args.shift();
-        // 'P' is a magic constant
-        mw.send('P' + id + ':' + JSON.stringify(
-                    { args: args }));
+        // 'P' is for payload, a magic constant
+        mw.send('P' + id + '=' + JSON.stringify({ args: args }));
     };
 
-    mw.recvPayload = function(serverSourceId, func) {
+    mw.recvPayload = function(serverSourceId, recvFunc = null,
+            removeFunc = null) {
 
-        mw.recvCalls[serverSourceId] = func;
+        mw.recvCalls[serverSourceId] = recvFunc;
+        mw.removeCalls[serverSourceId] = removeFunc;
+        mw._emit('subscribe', serverSourceId);
     };
 
 
@@ -506,18 +509,16 @@ function mw_client(userInit = function(mw) {
         //        + mw.url + '\n   ' + e.data);
 
         var message = e.data;
-        // Is this a Payload to just send to clients that subscribe?
         // Look for 'P' the magic constant.
         if(message.substr(0, 1) === 'P') {
 
-            var message = e.data;
-            // The message should be of the form: 'P343:' + jsonString
+            // The message should be of the form: 'P343=' + jsonString
             // where 343 is an example source ID.
-            // An example of a mininum message would be like 'P2:{}'
+            // An example of a mininum message would be like 'P2={}'
             var idLen = 1;
-            var stop = messagee.data.length - 3;
-            // find a ':' so the ID is before it.
-            while(idLen < stop && message.substr(idLen+1, 1) !== ':')
+            var stop = message.length - 3;
+            // find a '=' so the ID is before it.
+            while(idLen < stop && message.substr(idLen+1, 1) !== '=')
                 ++idLen;
             
             if(idLen === stop) {
@@ -532,12 +533,10 @@ function mw_client(userInit = function(mw) {
 
             if(mw.recvCalls[sourceId] === undefined)
                 mw_fail('MW WebSocket on payload sink callback "' + name +
-                    '" not found for message from ' + mw.url + ':' +
+                    '" not found for message from ' + mw.url + '=' +
                     '\n  ' + e.data);
 
-
             (mw.recvCalls[sourceId])(...obj.args);
-
 
             return;
         }
@@ -574,8 +573,6 @@ function mw_client(userInit = function(mw) {
     mw.onopen = function(e) {
 
         console.log('MW connected to ' + mw.url);
-
-        mw._emit('initiate', 'hello', 'mirror worlds');
     };
 
     // pretty good client webSocket tutorial.
@@ -586,14 +583,10 @@ function mw_client(userInit = function(mw) {
         mw.Id = id;
 
         console.log('MW initiate from ' + mw.url +
-                '\n   client ID=' + id);
+                '\n   My client ID=' + id);
 
         // set a default user name
         mw.Name = 'User' + id;
-
-        // TODO: add a timeout handler to happen before this
-        // event if this event takes to long.
-
         userInit(mw);
     });
 
@@ -609,20 +602,21 @@ function mw_client(userInit = function(mw) {
     };
 
     mw.on('createSource',
-        function(clientSourceId, serverSourceId, shortName,
-            description, jsSinkSrc) {
+        function(clientSourceId, serverSourceId, shortName) {
 
-            var func = mw.CreateSourceFuncs[sourceId];
-            // The shortName and description may be modified by the server
-            // and are returned in this callback to the javaScript that
-            // called mw.createSource().
-            func(serverSourceId, shortName, description);
+            console.log('MW created source: ' + shortName);
+
+            var func = mw.CreateSourceFuncs[clientSourceId];
+            // The shortName will be modified by the server and returned
+            // in this callback to the javaScript that called
+            // mw.createSource().
+            func(serverSourceId, shortName);
             // We are done with this function.
-            delete mw.CreateSourceFuncs[sourceId];
+            delete mw.CreateSourceFuncs[clientSourceId];
         }
     );
 
-    mw.subscribe = function(sourceId, shortName, description, jsSinkSrc) {
+    mw.addSink = function(sourceId, shortName, description, jsSinkSrc) {
 
         mw_addActor(jsSinkSrc,
                 function() {},
@@ -636,15 +630,31 @@ function mw_client(userInit = function(mw) {
             );
     };
 
+    mw.subscribeAll = false;
+
     mw.on('newSubscription', function(sourceId, shortName,
         description, jsSinkSrc) {
 
+            console.log('MW got newSubscription ' + shortName +
+                    '\n  mw.subscribeAll=' + mw.subscribeAll);
+
             // TODO: add a subscription user selection system that
-            // configures what to do with this service.  For now
-            // just subscribe to all newSubscription(s) received.
-            mw.subscribe(sourceId, shortName, description, jsSinkSrc);
+            // configures what to do with this service.
+            if(mw.subscribeAll)
+                mw.addSink(sourceId, shortName, description, jsSinkSrc);
         }
     );
+
+    mw.on('removeSubscription', function(sourceId) {
+
+        console.log('MW got removeSubscription ' + sourceId);
+
+        if(mw.removeCalls[sourceId]) {
+            mw.removeCalls[sourceId]();
+        }
+        delete mw.recvCalls[sourceId];
+        delete mw.removeCalls[sourceId];
+    });
 
 
     return mw;
@@ -672,8 +682,10 @@ function _mw_init() {
     mw_client(/*on initiate*/function(mw) {
 
         // When this is executed all the stuff is loaded.
-        mw_addActor(url, null, { mw: mw } );
-        mw_addActor(); // flush it.
+        mw_addActor(url,
+                function() {mw._emit('initiate');}
+                , { mw: mw }
+        );
     });
 }
 
@@ -683,5 +695,9 @@ function mw_init() {
 
     mw_addActor('x3dom/x3dom.css');
     mw_addActor('x3dom/x3dom.js');
-    mw_addActor('mw_default.css', function(node) { _mw_init(); });
+    mw_addActor('mw_default.css',
+            // So _mw_init() is called after all these
+            // files are loaded.
+            function(node) { _mw_init(); }
+    );
 }
