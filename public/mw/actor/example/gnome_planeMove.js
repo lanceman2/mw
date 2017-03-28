@@ -2,7 +2,7 @@
 
 (function() {
 
-    var prefix = mw_getCurrentScriptPrefix();
+    var prefix = mw_getScriptOptions().prefix;
 
     mw_addActor(prefix + 'gnome.x3d');
 

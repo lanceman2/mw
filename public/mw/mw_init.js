@@ -10,7 +10,8 @@ var _mw = {
     client_userInitFunc: null,
     addActor_blocked: false,
     actorFiles: [],
-    actorOpts: []
+    actorOpts: [],
+    mw: {} // list of WebSocket client connections from mw_client()
 };
 
 
@@ -386,30 +387,49 @@ function _mw_currentScriptAddress() {
 // returns a string that is the URL without the filename
 // and including the last '/'.
 // This will not work in a callback function.
-function mw_getCurrentScriptPrefix() {
+function _mw_getCurrentScriptPrefix() {
 
     mw_assert(document.currentScript,
-            'mw_getCurrentScriptPrefix(): you cannot get ' +
+            '_mw_getCurrentScriptPrefix(): you cannot get ' +
             'the current script in a handler');
     return document.currentScript.src.replace(/[^\/]*$/,'');
 }
 
 
-function mw_getCurrentScriptSrc() {
+function mw_getScriptOptions() {
 
     mw_assert(document.currentScript,
-            'mw_getCurrentScriptPrefix(): you cannot get ' +
+            'mw_getScriptOptions(): you cannot get ' +
             'the current script in a handler');
-     return document.currentScript.src;
+
+    if(document.currentScript._mw_opts)
+        var opts = document.currentScript._mw_opts;
+    else
+        var opts = {};
+
+    if(opts.script === undefined) {
+        opts.script = document.currentScript;
+    }
+
+    if(opts.src === undefined) {
+        opts.src = document.currentScript.src;
+    }
+
+    if(opts.prefix === undefined) {
+        opts.prefix = _mw_getCurrentScriptPrefix();
+    }
+
+
+    if(opts.mw === undefined) {
+        var key = Object.getKeys(_mw.mw);
+        mw_assert(key.length > 0, 'mw_getScriptOptions(): for ' +
+                'src=' + opts.src + '\n    ' +
+                'No WebSockets client conection found');
+        opts.mw = _mw.mw[key[0]];
+    }
+    return opts;
 }
 
-
-function mw_getScriptOpts() {
-
-    mw_assert(document.currentScript,
-            'you cannot get the current script in a handler');
-    return document.currentScript._mw_opts;
-}
 
 // This is the Mirror Worlds client factory function
 //
@@ -466,6 +486,12 @@ function mw_client(userInit = function(mw) {
     // the mw object is the WebSocket object
 
     var mw = new WebSocket(opts.url);
+
+    // Just to keep a list of these clients in a global
+    mw.ConnectionNum = _mw.connectionCount;
+    _mw.mw[mw.ConnectionNum] = mw;
+    ++_mw.connectionCount;
+
 
     mw.url = opts.url;
 
@@ -568,6 +594,10 @@ function mw_client(userInit = function(mw) {
     mw.onclose = function(e) {
 
         console.log('MW closed to ' + mw.url);
+
+        // Remove this client from the connection list.
+        _mw.mw[mw.ConnectionNum] = null;
+        delete _mw.mw[mw.ConnectionNum];
     };
 
     mw.onopen = function(e) {
@@ -648,6 +678,8 @@ function mw_client(userInit = function(mw) {
     mw.on('removeSubscription', function(sourceId) {
 
         console.log('MW got removeSubscription ' + sourceId);
+
+        // TODO: remove the <script>
 
         if(mw.removeCalls[sourceId]) {
             mw.removeCalls[sourceId]();

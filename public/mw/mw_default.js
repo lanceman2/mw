@@ -8,7 +8,7 @@
 // client is setup.
 (function() {
 
-    var pre = mw_getCurrentScriptPrefix();
+    var pre = mw_getScriptOptions().prefix;
 
     mw_addActor(pre+'actor/example/plane.x3d');
     mw_addActor(pre+'actor/example/gnome.x3d');

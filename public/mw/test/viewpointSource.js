@@ -6,23 +6,19 @@
 
 (function() {
 
-    var pre = mw_getCurrentScriptPrefix();
-    var opts = mw_getScriptOpts();
-    var src = mw_getCurrentScriptSrc();
-
-    mw_assert(opts.mw, 'mw client object not passed to ' + src);
+    var opts = mw_getScriptOptions();
 
     // Our very simple test world:
-    mw_addActor(pre+'../actor/example/plane.x3d');
-    mw_addActor(pre+'../actor/avatar/teapot.x3d');
+    mw_addActor(opts.prefix+'../actor/example/plane.x3d');
+    mw_addActor(opts.prefix+'../actor/avatar/teapot.x3d');
 
     // Add the viewpoint source thingy, so other clients
     // may follow us:
-    mw_addActor(pre+'../subscription/source/body_3pos_4rot.js',
+    mw_addActor(opts.prefix+'../subscription/source/body_3pos_4rot.js',
 
         function() {
 
-            console.log(src + ' finished setting up');
+            console.log(opts.src + ' finished setting up');
         },
         {
             // options for source body_3pos_4rot.js

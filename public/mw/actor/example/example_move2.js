@@ -3,7 +3,7 @@
 
 (function() {
 
-    var pre = mw_getCurrentScriptPrefix();
+    var pre = mw_getScriptOptions().prefix;
 
     mw_addActor(pre+'plane.x3d');
     mw_addActor(pre+'move.x3d');

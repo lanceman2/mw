@@ -16,29 +16,26 @@
 
 (function() {
 
-    var pre = mw_getCurrentScriptPrefix();
-    var src = mw_getCurrentScriptSrc();
-    var opts = mw_getScriptOpts();
-    var mw = opts.mw;
+    var opts = mw_getScriptOptions();
 
     // Check that required options are present.
-    mw_assert(mw, 'mw client object not passed to' + src);
-    mw_assert(typeof opts.body !== 'undefined', 'no body given to ' + src);
-    mw_assert(typeof opts.listener === 'string', 'no listener given to ' + src);
+    mw_assert(typeof opts.body !== 'undefined',
+            'no body given to ' + opts.src);
+    mw_assert(typeof opts.listener === 'string',
+            'no listener given to ' + opts.src);
 
-    var description = 'rigid body position';
-    var body = opts.body;
-
-    mw.createSource('body_pos_rot', description,
-            pre+'../sink/body_3pos_4rot.js' /*jsSinkSrc*/,
+    opts.mw.createSource('body_pos_rot',
+            'rigid body position'/*description*/,
+            opts.prefix+'../sink/body_3pos_4rot.js'/*jsSinkSrc*/,
         function(serverSourceId, shortName) {
  
             // We have approval from the server now we setup a handler.
-            body.addEventListener(opts.listener,
+            opts.body.addEventListener(opts.listener,
                 function(e) {
 
                     // Send this to the subscribers in this handler.
-                    mw.sendPayload(serverSourceId, e.position, e.orientation);
+                    opts.mw.sendPayload(serverSourceId,
+                            e.position, e.orientation);
                 }
             );
         }
