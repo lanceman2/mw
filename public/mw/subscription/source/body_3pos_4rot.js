@@ -5,9 +5,8 @@
 //
 // The body being the source is just required to have:
 //
-//    body.getAttribute('position')
-//    body.getAttribute('orientation')
 //    body.addEventListener(listener, function(e) {})
+//    With   e.position  and  e.orientation
 //
 // Looks like in x3dom the quaternion is not normalized.
 //

@@ -1,3 +1,5 @@
+// This is a sink for source ../source/body_3pos_4rot.js
+
 (function() {
 
     var opts = mw_getScriptOptions();

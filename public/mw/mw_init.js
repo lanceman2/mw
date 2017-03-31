@@ -505,6 +505,7 @@ function mw_client(userInit = function(mw) {
     mw.SourceCount = 0;
     mw.CreateSourceFuncs = {};
     mw.subscribeAll = true;
+    mw.subscriptions = {};
 
     mw.on = function(name, func) {
 
@@ -663,28 +664,42 @@ function mw_client(userInit = function(mw) {
         }
     );
 
+    mw.subscribe = function(sourceId) {
+ 
+        if(mw.subscriptions[sourceId] !== undefined)
+            mw_addActor(mw.subscriptions[sourceId].jsSinkSrc,
+                function() {
+                    console.log('MW subscribed to ' +
+                    mw.subscriptions[sourceId].jsSinkSrc);
+                },  mw.subscriptions[sourceId]);
+    };
+
     mw.on('newSubscription', function(sourceId, shortName,
         description, jsSinkSrc) {
 
             console.log('MW got newSubscription  advertisement ' +
                     shortName + '\n  mw.subscribeAll=' + mw.subscribeAll);
 
+            // Add this to the list of things that we can subscribe to.
+            mw.subscriptions[sourceId] = {
+ 
+                mw: mw,
+                sourceId: sourceId, // server source ID
+                shortName: shortName,
+                description: description,
+                jsSinkSrc: jsSinkSrc // TODO: add a function call option?
+                    // instead of loading a javaScript file or both?
+            };
+
             // TODO: add a subscription user selection system that
             // configures what to do with this service: subscribe or
             // ignore it.
-            //
-            // We do not subscribe if this client is the source.
-            if(mw.subscribeAll && mw.Sources[sourceId] == undefined)
-                mw_addActor(jsSinkSrc,
-                    function() {},
-                    {
-                        // options passed
-                        mw: mw,
-                        sourceId: sourceId, // server source ID
-                        shortName: shortName,
-                        description: description
-                    }
-                );
+
+            if(mw.subscribeAll &&
+                        // We do not subscribe if this client is the source.
+                        mw.Sources[sourceId] === undefined)
+                    mw.subscribe(sourceId);
+
         }
     );
 
@@ -699,6 +714,7 @@ function mw_client(userInit = function(mw) {
         }
         delete mw.recvCalls[sourceId];
         delete mw.removeCalls[sourceId];
+        delete mw.subscriptions[sourceId];
     });
 
 
