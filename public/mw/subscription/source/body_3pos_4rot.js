@@ -19,7 +19,7 @@
     var opts = mw_getScriptOptions();
 
     // Check that required options are present.
-    mw_assert(typeof opts.body !== 'undefined',
+    mw_assert(opts.body !== undefined,
             'no body given to ' + opts.src);
     mw_assert(typeof opts.listener === 'string',
             'no listener given to ' + opts.src);

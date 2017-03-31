@@ -110,7 +110,9 @@ function mw_getCurrentViewpoint()
     // more views.
     var viewpoint = x3d.runtime.getActiveBindable("Viewpoint");
 
-    //Attach default viewpoint if none exists
+    // Attach default viewpoint if none exists
+    // This must be  if(viewpoint == undefined)
+    // not if(viewpoint === undefined) WTF?
     if(viewpoint == undefined) {
 
 	viewpoint = document.createElement("viewpoint");
@@ -343,7 +345,6 @@ function mw_addActor(url = null, onload = null, opts = null) {
         return;
     }
 
-    //console.log('----------- url=' + url + ' \n  ' +onload);
 
     if(_mw.actorFiles.length > 0) {
 
@@ -402,11 +403,13 @@ function mw_getScriptOptions() {
             'mw_getScriptOptions(): you cannot get ' +
             'the current script in a handler');
 
+
     if(document.currentScript._mw_opts)
         var opts = document.currentScript._mw_opts;
     else
         var opts = {};
 
+    
     if(opts.script === undefined) {
         opts.script = document.currentScript;
     }
@@ -419,14 +422,14 @@ function mw_getScriptOptions() {
         opts.prefix = _mw_getCurrentScriptPrefix();
     }
 
-
     if(opts.mw === undefined) {
-        var key = Object.getKeys(_mw.mw);
-        mw_assert(key.length > 0, 'mw_getScriptOptions(): for ' +
+        var keys = Object.keys(_mw.mw);
+        mw_assert(keys.length > 0, 'mw_getScriptOptions(): for ' +
                 'src=' + opts.src + '\n    ' +
                 'No WebSockets client conection found');
-        opts.mw = _mw.mw[key[0]];
+        opts.mw = _mw.mw[keys[0]];
     }
+
     return opts;
 }
 
@@ -489,7 +492,7 @@ function mw_client(userInit = function(mw) {
 
     // Just to keep a list of these clients in a global
     mw.ConnectionNum = _mw.connectionCount;
-    _mw.mw[mw.ConnectionNum] = mw;
+    _mw.mw[mw.ConnectionNum.toString()] = mw;
     ++_mw.connectionCount;
 
 
@@ -498,6 +501,9 @@ function mw_client(userInit = function(mw) {
     mw.onCalls = {};
     mw.recvCalls = {};
     mw.removeCalls = {};
+    mw.SourceId = 0;
+    mw.CreateSourceFuncs = {};
+    mw.subscribeAll = false;
 
     mw.on = function(name, func) {
 
@@ -517,6 +523,7 @@ function mw_client(userInit = function(mw) {
         var args = [].slice.call(arguments);
         var id = args.shift();
         // 'P' is for payload, a magic constant
+        console.log('------------------------- sending');
         mw.send('P' + id + '=' + JSON.stringify({ args: args }));
     };
 
@@ -620,8 +627,6 @@ function mw_client(userInit = function(mw) {
         userInit(mw);
     });
 
-    mw.SourceId = 0;
-    mw.CreateSourceFuncs = {};
 
     mw.createSource = function(shortName, description, jsSinkSrc, func) {
 
@@ -634,8 +639,6 @@ function mw_client(userInit = function(mw) {
     mw.on('createSource',
         function(clientSourceId, serverSourceId, shortName) {
 
-            console.log('MW created source: ' + shortName);
-
             var func = mw.CreateSourceFuncs[clientSourceId];
             // The shortName will be modified by the server and returned
             // in this callback to the javaScript that called
@@ -643,24 +646,10 @@ function mw_client(userInit = function(mw) {
             func(serverSourceId, shortName);
             // We are done with this function.
             delete mw.CreateSourceFuncs[clientSourceId];
+            mw.Sources[serverSourceId] = true; // Rec
+            // TODO: add a client initiated removeSource interface
         }
     );
-
-    mw.addSink = function(sourceId, shortName, description, jsSinkSrc) {
-
-        mw_addActor(jsSinkSrc,
-                function() {},
-                {
-                    // options passed
-                    mw: mw,
-                    sourceId: sourceId, // server source ID
-                    shortName: shortName,
-                    description: description
-                }
-            );
-    };
-
-    mw.subscribeAll = false;
 
     mw.on('newSubscription', function(sourceId, shortName,
         description, jsSinkSrc) {
@@ -671,7 +660,16 @@ function mw_client(userInit = function(mw) {
             // TODO: add a subscription user selection system that
             // configures what to do with this service.
             if(mw.subscribeAll)
-                mw.addSink(sourceId, shortName, description, jsSinkSrc);
+                mw_addActor(jsSinkSrc,
+                    function() {},
+                    {
+                        // options passed
+                        mw: mw,
+                        sourceId: sourceId, // server source ID
+                        shortName: shortName,
+                        description: description
+                    }
+                );
         }
     );
 

@@ -3,7 +3,7 @@
     var opts = mw_getScriptOptions();
 
     // Required option(s):
-    mw_assert(typeof opts.sourceId !== 'undefined',
+    mw_assert(opts.sourceId !== undefined,
             'no source ID given to ' + opts.src);
 
     var viewpoint = mw_getCurrentViewpoint();

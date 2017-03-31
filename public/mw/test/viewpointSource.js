@@ -24,8 +24,7 @@
             // options for source body_3pos_4rot.js
             //
             body: mw_getCurrentViewpoint(), // get pos and rot from body
-            listener: 'viewpointChanged',   // event to listen to
-            mw: opts.mw                     // mw WebSocket object sending
+            listener: 'viewpointChanged'  // event to listen to
         }
     );
 })();
