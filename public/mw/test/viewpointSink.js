@@ -7,7 +7,7 @@
     mw_addActor(opts.prefix+'../examples/teapot.x3d');
     mw_addActor(); // flush
 
-    opts.mw.subscribeAll = true;
+    //opts.mw.subscribeAll = true;
 
     console.log('Loaded ' + opts.src);
 })();

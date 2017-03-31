@@ -501,9 +501,10 @@ function mw_client(userInit = function(mw) {
     mw.onCalls = {};
     mw.recvCalls = {};
     mw.removeCalls = {};
-    mw.SourceId = 0;
+    mw.Sources = {};
+    mw.SourceCount = 0;
     mw.CreateSourceFuncs = {};
-    mw.subscribeAll = false;
+    mw.subscribeAll = true;
 
     mw.on = function(name, func) {
 
@@ -523,7 +524,6 @@ function mw_client(userInit = function(mw) {
         var args = [].slice.call(arguments);
         var id = args.shift();
         // 'P' is for payload, a magic constant
-        console.log('------------------------- sending');
         mw.send('P' + id + '=' + JSON.stringify({ args: args }));
     };
 
@@ -630,10 +630,11 @@ function mw_client(userInit = function(mw) {
 
     mw.createSource = function(shortName, description, jsSinkSrc, func) {
 
-        var sourceId = (++mw.SourceId).toString(); // client source ID
-        mw.CreateSourceFuncs[sourceId] = func;
+        var clientSourceId = (++mw.SourceCount).toString(); // client source ID
+        mw.CreateSourceFuncs[clientSourceId] = func;
+
         // Ask the server to create a new source of data
-        mw._emit('createSource', sourceId, shortName, description, jsSinkSrc);
+        mw._emit('createSource', clientSourceId, shortName, description, jsSinkSrc);
     };
 
     mw.on('createSource',
@@ -646,7 +647,18 @@ function mw_client(userInit = function(mw) {
             func(serverSourceId, shortName);
             // We are done with this function.
             delete mw.CreateSourceFuncs[clientSourceId];
-            mw.Sources[serverSourceId] = true; // Rec
+            // Record that we are a source
+            mw.Sources[serverSourceId] = true;
+
+            // Now that we have things setup for this source we tell the
+            // server to advertise the 'newSubscription'.  The server
+            // can't send out the 'newSubscription' advertisement until we
+            // tell it to, so that we have no race condition:  If we got
+            // the 'newSubscription' before we received the sourceId we
+            // could not tell if we are the client that is the source for
+            // the 'newSubscription'.
+            mw._emit('advertise', serverSourceId);
+
             // TODO: add a client initiated removeSource interface
         }
     );
@@ -654,12 +666,15 @@ function mw_client(userInit = function(mw) {
     mw.on('newSubscription', function(sourceId, shortName,
         description, jsSinkSrc) {
 
-            console.log('MW got newSubscription ' + shortName +
-                    '\n  mw.subscribeAll=' + mw.subscribeAll);
+            console.log('MW got newSubscription  advertisement ' +
+                    shortName + '\n  mw.subscribeAll=' + mw.subscribeAll);
 
             // TODO: add a subscription user selection system that
-            // configures what to do with this service.
-            if(mw.subscribeAll)
+            // configures what to do with this service: subscribe or
+            // ignore it.
+            //
+            // We do not subscribe if this client is the source.
+            if(mw.subscribeAll && mw.Sources[sourceId] == undefined)
                 mw_addActor(jsSinkSrc,
                     function() {},
                     {
