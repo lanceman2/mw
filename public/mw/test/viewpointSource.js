@@ -9,8 +9,8 @@
     var opts = mw_getScriptOptions();
 
     // Our very simple test world:
-    mw_addActor(opts.prefix+'../actor/example/plane.x3d');
-    mw_addActor(opts.prefix+'../actor/avatar/teapot.x3d');
+    mw_addActor(opts.prefix+'../examples/plane.x3d');
+    mw_addActor(opts.prefix+'../examples/teapot.x3d');
 
     // Add the viewpoint source thingy, so other clients
     // may follow us:

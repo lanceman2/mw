@@ -1,5 +1,3 @@
-// We keep the namespace clean by calling this anonymous function.
-
 (function() {
 
     var prefix = mw_getScriptOptions().prefix;

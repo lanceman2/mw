@@ -3,8 +3,8 @@
 
     var opts = mw_getScriptOptions();
 
-    mw_addActor(opts.prefix+'../actor/example/plane.x3d');
-    mw_addActor(opts.prefix+'../actor/example/gnome.x3d');
+    mw_addActor(opts.prefix+'../examples/plane.x3d');
+    mw_addActor(opts.prefix+'../examples/gnome.x3d');
 
     mw_client(
         function(mw) {

@@ -10,8 +10,8 @@
 
     var pre = mw_getScriptOptions().prefix;
 
-    mw_addActor(pre+'actor/example/plane.x3d');
-    mw_addActor(pre+'actor/example/gnome.x3d');
+    mw_addActor(pre+'examples/plane.x3d');
+    mw_addActor(pre+'examples/gnome.x3d');
 
     // TODO: add navigation following
 
