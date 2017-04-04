@@ -629,13 +629,13 @@ function mw_client(userInit = function(mw) {
     });
 
 
-    mw.createSource = function(shortName, description, jsSinkSrc, func) {
+    mw.createSource = function(shortName, description, tagOrJavaScriptSrc, func) {
 
         var clientSourceId = (++mw.SourceCount).toString(); // client source ID
         mw.CreateSourceFuncs[clientSourceId] = func;
 
         // Ask the server to create a new source of data
-        mw._emit('createSource', clientSourceId, shortName, description, jsSinkSrc);
+        mw._emit('createSource', clientSourceId, shortName, description, tagOrJavaScriptSrc);
     };
 
     mw.on('createSource',
@@ -664,18 +664,38 @@ function mw_client(userInit = function(mw) {
         }
     );
 
-    mw.subscribe = function(sourceId) {
+    mw.unsubscribe = function(sourceId) {
  
-        if(mw.subscriptions[sourceId] !== undefined)
-            mw_addActor(mw.subscriptions[sourceId].jsSinkSrc,
+        // TODO: More code here.
+        console.log('MW unsubscribed to ' +
+                    mw.subscriptions[sourceId].tagOrJavaScriptSrc);
+    };
+
+    mw.subscribe = function(sourceId) {
+
+        if(mw.subscriptions[sourceId] !== undefined) {
+
+            // Did the code already have a recvPayload function set.
+            if(mw.recvCalls[mw.subscriptions[sourceId].tagOrJavaScriptSrc] !== undefined) {
+
+                // All mw.recvPayload() with this sourceId will now call
+                // a function based on example like:  mw.recvPayload('moveAvator',
+                // function() { }, function() {})  
+                mw.recvCalls[sourceId] = mw.recvCalls[mw.subscriptions[sourceId].tagOrJavaScriptSrc];
+                return;
+            }
+
+            // Else we add javaScript code from a url.
+            mw_addActor(mw.subscriptions[sourceId].tagOrJavaScriptSrc,
                 function() {
                     console.log('MW subscribed to ' +
-                    mw.subscriptions[sourceId].jsSinkSrc);
+                    mw.subscriptions[sourceId].tagOrJavaScriptSrc);
                 },  mw.subscriptions[sourceId]);
+        }
     };
 
     mw.on('newSubscription', function(sourceId, shortName,
-        description, jsSinkSrc) {
+        description, tagOrJavaScriptSrc) {
 
             console.log('MW got newSubscription  advertisement ' +
                     shortName + '\n  mw.subscribeAll=' + mw.subscribeAll);
@@ -687,7 +707,7 @@ function mw_client(userInit = function(mw) {
                 sourceId: sourceId, // server source ID
                 shortName: shortName,
                 description: description,
-                jsSinkSrc: jsSinkSrc // TODO: add a function call option?
+                tagOrJavaScriptSrc: tagOrJavaScriptSrc // TODO: add a function call option?
                     // instead of loading a javaScript file or both?
             };
 
@@ -709,7 +729,7 @@ function mw_client(userInit = function(mw) {
 
         // TODO: remove the <script>
 
-        if(mw.removeCalls[sourceId]) {
+        if(mw.removeCalls[sourceId] !== undefined) {
             mw.removeCalls[sourceId]();
         }
         delete mw.recvCalls[sourceId];
