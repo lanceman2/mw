@@ -504,6 +504,7 @@ function mw_client(userInit = function(mw) {
     mw.Sources = {};
     mw.SourceCount = 0;
     mw.CreateSourceFuncs = {};
+    mw.CleanupSourceFuncs = {};
     mw.subscribeAll = true;
     mw.subscriptions = {};
 
@@ -533,7 +534,9 @@ function mw_client(userInit = function(mw) {
 
         mw.recvCalls[serverSourceId] = recvFunc;
         mw.removeCalls[serverSourceId] = removeFunc;
-        mw._emit('subscribe', serverSourceId);
+
+        if(mw.subscriptions[sourceId])
+            mw._emit('subscribe', serverSourceId);
     };
 
 
@@ -616,7 +619,7 @@ function mw_client(userInit = function(mw) {
     // pretty good client webSocket tutorial.
     // http://cjihrig.com/blog/how-to-use-websockets/
 
-    mw.on('initiate', function(id) {
+    mw.on('initiate',/*received from the server*/ function(id) {
 
         mw.Id = id;
 
@@ -629,16 +632,20 @@ function mw_client(userInit = function(mw) {
     });
 
 
-    mw.createSource = function(shortName, description, tagOrJavaScriptSrc, func) {
+    mw.createSource = function(shortName, description,
+            tagOrJavaScriptSrc, func, cleanupFunc = null) {
 
         var clientSourceId = (++mw.SourceCount).toString(); // client source ID
         mw.CreateSourceFuncs[clientSourceId] = func;
+        // TODO: make this cleanupFunc do it's thing on a
+        // 'removeSource' server request ???
+        mw.CleanupSourceFuncs[clientSourceId] = cleanupFunc;
 
         // Ask the server to create a new source of data
         mw._emit('createSource', clientSourceId, shortName, description, tagOrJavaScriptSrc);
     };
 
-    mw.on('createSource',
+    mw.on('createSource', /*received from the server*/
         function(clientSourceId, serverSourceId, shortName) {
 
             var func = mw.CreateSourceFuncs[clientSourceId];
@@ -648,8 +655,15 @@ function mw_client(userInit = function(mw) {
             func(serverSourceId, shortName);
             // We are done with this function.
             delete mw.CreateSourceFuncs[clientSourceId];
-            // Record that we are a source
-            mw.Sources[serverSourceId] = true;
+
+            // TODO: this in a 'removeSource'
+            // server request or something like that.
+
+            // Record that we are a source: If mw.Sources[serverSourceId]
+            // is defined we are a source to the serverSourceId
+            // subscription and while we are at it use the cleanup
+            // function as the value.
+            mw.Sources[serverSourceId] = mw.CleanupSourceFuncs[clientSourceId];
 
             // Now that we have things setup for this source we tell the
             // server to advertise the 'newSubscription'.  The server
@@ -657,7 +671,7 @@ function mw_client(userInit = function(mw) {
             // tell it to, so that we have no race condition:  If we got
             // the 'newSubscription' before we received the sourceId we
             // could not tell if we are the client that is the source for
-            // the 'newSubscription'.
+            // receiving the corresponding 'newSubscription' below... 
             mw._emit('advertise', serverSourceId);
 
             // TODO: add a client initiated removeSource interface
@@ -673,53 +687,125 @@ function mw_client(userInit = function(mw) {
 
     mw.subscribe = function(sourceId) {
 
+        mw_assert(mw.subscriptions[sourceId] !== undefined, 'subscription(' +
+                    sourceId + ') is invalid');
+
         if(mw.subscriptions[sourceId] !== undefined) {
 
             // Did the code already have a recvPayload function set.
             if(mw.recvCalls[mw.subscriptions[sourceId].tagOrJavaScriptSrc] !== undefined) {
+ 
+                console.log('MW subscribing to ' +
+                    mw.subscriptions[sourceId].shortName +
+                    ' via a built-in mw.recvPayload() callback' );
 
                 // All mw.recvPayload() with this sourceId will now call
                 // a function based on example like:  mw.recvPayload('moveAvator',
                 // function() { }, function() {})  
                 mw.recvCalls[sourceId] = mw.recvCalls[mw.subscriptions[sourceId].tagOrJavaScriptSrc];
+                printSubscriptions();
                 return;
             }
 
             // Else we add javaScript code from a url.
+            console.log('MW subscribing to ' +
+                    shortName + ' via javaScript src=' +
+                    mw.subscriptions[sourceId].tagOrJavaScriptSrc);
+
             mw_addActor(mw.subscriptions[sourceId].tagOrJavaScriptSrc,
                 function() {
                     console.log('MW subscribed to ' +
                     mw.subscriptions[sourceId].tagOrJavaScriptSrc);
+                    printSubscriptions();
                 },  mw.subscriptions[sourceId]);
         }
     };
 
-    mw.on('newSubscription', function(sourceId, shortName,
-        description, tagOrJavaScriptSrc) {
 
-            console.log('MW got newSubscription  advertisement ' +
+    // This long function just spews for debugging and does nothing
+    // else.
+    function printSubscriptions() {
+
+        // First print this mw clients subscriptions sinks.
+        var notGotOne = true;
+
+        Object.keys(mw.subscriptions).forEach(function(id) {
+
+            if(mw.recvCalls[id] !== undefined) {
+                if(notGotOne) {
+                    console.log('Mw  This client (of ' + mw.url +
+                            ') currently reading subscriptions:');
+                    notGotOne = false;
+                }
+                // mw.recvCalls[sourceId] will be defined if and only if
+                // we are subscribed.
+                console.log('   ' + mw.subscriptions[id].shortName);
+            }
+        });
+
+        if(notGotOne)
+            console.log('Mw  This client (of ' + mw.url +
+                    ') Reads NO current subscriptions');
+
+        // Recycle this flag for printing subscriptions we are writing.
+        notGotOne = true;
+
+        Object.keys(mw.subscriptions).forEach(function(id) {
+
+            if(mw.Sources[id] !== undefined) {
+                if(notGotOne) {
+                    console.log('Mw  This client (of ' + mw.url +
+                            ') currently is writing subscriptions:');
+                    notGotOne = false;
+                }
+                // mw.recvCalls[sourceId] will be defined if and only if
+                // we are subscribed.
+                console.log('   ' + mw.subscriptions[id].shortName);
+            }
+        });
+
+        if(notGotOne)
+            console.log('Mw  This client (of ' + mw.url +
+                    ') Writes NO current subscriptions');
+    }
+
+
+    // 'newSubscription' Sent to this client when a source becomes
+    // available for this client for the first time, whither it be because
+    // we just connected to the server or the source was just added to the
+    // server by this or other client.
+    mw.on('newSubscription', /*received from the server*/
+            function(sourceId, shortName,
+                description, tagOrJavaScriptSrc) {
+
+                console.log('MW got newSubscription  advertisement ' +
                     shortName + '\n  mw.subscribeAll=' + mw.subscribeAll);
 
-            // Add this to the list of things that we can subscribe to.
-            mw.subscriptions[sourceId] = {
+                // Add this to the list of things that we can subscribe to
+                // whither we subscribe to it or not.
+                mw.subscriptions[sourceId] = {
  
-                mw: mw,
-                sourceId: sourceId, // server source ID
-                shortName: shortName,
-                description: description,
-                tagOrJavaScriptSrc: tagOrJavaScriptSrc // TODO: add a function call option?
+                    mw: mw,
+                    sourceId: sourceId, // server source ID
+                    shortName: shortName,
+                    description: description,
+                    tagOrJavaScriptSrc: tagOrJavaScriptSrc // TODO: add a function call option?
                     // instead of loading a javaScript file or both?
-            };
+                };
 
-            // TODO: add a subscription user selection system that
-            // configures what to do with this service: subscribe or
-            // ignore it.
+                // TODO: add a subscription user selection system that
+                // configures what to do with this service: subscribe or
+                // ignore it.
 
-            if(mw.subscribeAll &&
+                if(mw.subscribeAll &&
                         // We do not subscribe if this client is the source.
                         mw.Sources[sourceId] === undefined)
                     mw.subscribe(sourceId);
-
+                else {
+                    console.log('MW did not subscribe to ' +
+                        shortName);
+                    printSubscriptions();
+                }
         }
     );
 
@@ -727,14 +813,19 @@ function mw_client(userInit = function(mw) {
 
         console.log('MW got removeSubscription ' + sourceId);
 
-        // TODO: remove the <script>
+        // TODO: remove the <script> if there is one.
 
         if(mw.removeCalls[sourceId] !== undefined) {
-            mw.removeCalls[sourceId]();
+            // The user is not required to define a cleanup function.
+            // Look how easy it is to pass the arguments.
+            mw.removeCalls[sourceId](...arguments);
         }
+
         delete mw.recvCalls[sourceId];
         delete mw.removeCalls[sourceId];
         delete mw.subscriptions[sourceId];
+
+        printSubscriptions();
     });
 
 

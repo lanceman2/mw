@@ -36,8 +36,18 @@ mw_addActor() with the onloadCallback, we call flushing the file load
 requests.
 
 
+
+
+
+
 mw_client( onConnect(mw) { }, optsObject );
 
 
+### Something to think about
 
+WebRTC
+
+https://www.html5rocks.com/en/tutorials/webrtc/basics/
+
+https://www.w3.org/TR/webrtc/
 

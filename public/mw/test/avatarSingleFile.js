@@ -7,30 +7,55 @@
     mw_addActor(opts.prefix+'../examples/plane.x3d');
     mw_addActor(opts.prefix+'../examples/teapot.x3d');
 
-    mw_addActor(); // flush
+    mw_addActor(); // flush the above mw_addActor() calls.
 
-
+    // list of avatars gets updated in mw.recvPayload('addAvator', ...)
+    // for different avatars.
     var avatars = { };
 
     // The callback to add another users Avatar The function get called
     // with the arguments that are sent in sendPayload(avatarId,
     // avatarUrl) on another client below.
-    mw.recvPayload('addAvator', function(avatarId, avatarUrl) {
+    mw.recvPayload('addAvator',
 
-        mw_addActor(avatarUrl, function(transformNode) {
+        // function - What to do with the payload:
+        // Add an avatar.  avatarId is the server service subscription ID.
+        function(avatarId, avatarUrl) {
 
-            avatars[avatarId] = transformNode;
+            mw_addActor(avatarUrl, function(transformNode) {
 
-            }, {
-                containerNodeType: 'Transform'
-            }
-        );
-    }
+                avatars[avatarId] = transformNode;
+
+                }, {
+                    containerNodeType: 'Transform'
+                }
+            );
+        },
+
+        // function - What to do for when the avatar related subscription
+        // quits or we unsubscribe.  Cleanup.
+        function(avatarId) {
+
+            // TODO: add a javaScript preprocessor to remove asserts
+            // in production builds.
+            mw_assert(avatars[avatarId] !== undefined,
+                    'Cannot cleanup avatar id=' + avatarId);
+
+            avatars[avatarId].parentNode.removeChild(avatars[avatarId]);
+            delete avatars[avatarId];
+            // avatars[avatarId] should be undefined now.
+        }
+    );
+
 
     // Called to receive function for sendPayload(avatarMoveId, avatarId,
     //   e.position, e.orientation);
-    // from another client called below.
-    mw.recvPayload('moveAvator', function(avatarMoveId, avatarId, pos, rot) {
+    // from another client calling far below here in this file.
+    mw.recvPayload('moveAvator', 
+
+        // function - What to do with the payload: Move the avatar.
+        // avatarMoveId is the server service subscription ID.
+        function(avatarMoveId, avatarId, pos, rot) {
 
         if(avatars[avatarId] !== undefined) {
 
@@ -39,16 +64,31 @@
             avatars[avatarId].setAttribute('rotation',
                 rot[0].x + ' ' + rot[0].y + ' ' + rot[0].z + ' ' + rot[1]);
 
-        }, function(
+        }
+        // function - What to do for when the avatar quits.
+        // Cleanup.  Okay nothing to do, 'addAvator' should do it for us.
+        // cleanup function defaults to null.
     });
 
 
     // We tell the server that we want an Avatar file to represent us on
     // the other clients
     mw.createSource('avatar',/*shortName*/
-            'user avatar'/*description*/,
-            'addAvator'/*the mw recvPayload function name (or url of javaScript)*/,
+        'user avatar'/*description*/,
+        // 'addAvator' is association to the sink call to
+        // mw.recvPayload('addAvator', ...) above.
+        // This is the magic that connects sendPayload() to its
+        // corresponding recvPayload().
+        'addAvator'/* the recv function name or url to javaScript
+                        * receiver code (not url in this case) */,
         function(avatarId, shortName) {
+
+            // This is the avatar source function.
+
+            // avatarId is the unique server service subscription Id that
+            // the server assigned to us.  shortName is assigned too, but
+            // based on our shortName that is requested in
+            // mw.createSource() just above.
 
             // TODO: add user avatar selection.
             // We could do it here based on avatarId.
@@ -60,11 +100,13 @@
             // We move "our" avatar on the other clients by sending our
             // viewpoint The positioning of the Avatar depends on the
             // Avatar being loaded, therefore this is nested under the
-            // Avatar setup callback.:w
+            // Avatar setup callback.
             mw.createSource('move_avator',/*shortName*/
                 'avator body position as 3 pos and 4 rot'/*description*/,
                 'moveAvator'/*function name (or url of javaScript)*/,
                 function(avatarMoveId, shortName) {
+
+                    // This is the "move avatar" source function.
  
                     // We have approval from the server now we setup a
                     // handler.
@@ -78,13 +120,9 @@
                                     e.position, e.orientation);
                         }
                     );
-                
                 }
             );
         }
     );
-
-
-
 
 })();
