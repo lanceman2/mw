@@ -22,28 +22,26 @@
         // Add an avatar.  avatarId is the server service subscription ID.
         function(avatarId, avatarUrl) {
 
+
             mw_addActor(avatarUrl, function(transformNode) {
 
                 avatars[avatarId] = transformNode;
 
-                }, {
-                    containerNodeType: 'Transform'
-                }
-            );
-        },
+                // function - What to do for when the avatar related
+                // subscription quits or we unsubscribe.  Cleanup.
+                // We set this here because it depends on the actor
+                // being loaded.
+                mw.setUnsubscribeCleanup(avatarId, function(avatarId) {
 
-        // function - What to do for when the avatar related subscription
-        // quits or we unsubscribe.  Cleanup.
-        function(avatarId) {
+                    avatars[avatarId].parentNode.removeChild(
+                            avatars[avatarId]);
+                    delete avatars[avatarId];
+                    // avatars[avatarId] should be undefined now.
+                });
 
-            // TODO: add a javaScript preprocessor to remove asserts
-            // in production builds.
-            mw_assert(avatars[avatarId] !== undefined,
-                    'Cannot cleanup avatar id=' + avatarId);
-
-            avatars[avatarId].parentNode.removeChild(avatars[avatarId]);
-            delete avatars[avatarId];
-            // avatars[avatarId] should be undefined now.
+            }, {
+                containerNodeType: 'Transform'
+            });
         }
     );
 
@@ -61,17 +59,13 @@
         // avatarMoveId is the server service subscription ID.
         function(avatarMoveId, avatarId, pos, rot) {
 
-        if(avatars[avatarId] !== undefined) {
+            if(avatars[avatarId] !== undefined) {
 
-            avatars[avatarId].setAttribute('translation',
-                pos.x + ' ' + pos.y + ' ' + pos.z);
-            avatars[avatarId].setAttribute('rotation',
-                rot[0].x + ' ' + rot[0].y + ' ' + rot[0].z + ' ' + rot[1]);
-
-        }
-        // function - What to do for when the avatar quits.
-        // Cleanup.  Okay nothing to do, 'addAvator' should do it for us.
-        // cleanup function defaults to null.
+                avatars[avatarId].setAttribute('translation',
+                    pos.x + ' ' + pos.y + ' ' + pos.z);
+                avatars[avatarId].setAttribute('rotation',
+                    rot[0].x + ' ' + rot[0].y + ' ' + rot[0].z + ' ' + rot[1]);
+            }
     });
 
 

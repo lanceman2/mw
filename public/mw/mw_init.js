@@ -500,7 +500,7 @@ function mw_client(userInit = function(mw) {
 
     mw.onCalls = {};
     mw.recvCalls = {};
-    mw.removeCalls = {};
+    mw.cleanupCalls = {};
     mw.Sources = {};
     mw.SourceCount = 0;
     mw.CreateSourceFuncs = {};
@@ -579,10 +579,12 @@ function mw_client(userInit = function(mw) {
                 mw.recvCalls[
                     mw.subscriptions[sourceId].tagOrJavaScriptSrc
                 ];
-            mw.removeCalls[sourceId] =
-                mw.removeCalls[
+            var removeCall = mw.cleanupCalls[
                     mw.subscriptions[sourceId].tagOrJavaScriptSrc
                 ];
+            if(mw.removeCall !== undefined)
+                mw.cleanupCalls[sourceId] = removeCall;
+            
             // Tell the server to send this subscription to us.
             mw._emit('subscribe', sourceId);
             mw.printSubscriptions();
@@ -617,7 +619,7 @@ function mw_client(userInit = function(mw) {
         // Log the callbacks.
         mw.recvCalls[tag] = recvFunc;
         if(removeFunc !== null)
-            mw.removeCalls[tag] = removeFunc;
+            mw.cleanupCalls[tag] = removeFunc;
 
         // Subscribe if things are setup for it.
         if(mw.subscriptions[tag] !== undefined)
@@ -628,6 +630,13 @@ function mw_client(userInit = function(mw) {
                     '") bad subsciption descriptor "' +
                     tag + '"');
     };
+
+    // Sets the mw.cleanupCalls function after the mw.recvCalls function is
+    // called.
+    mw.setUnsubscribeCleanup(sourceId, removeFunc) {
+
+        mw.cleanupCalls[sourceId] = removeFunc;
+    }
 
 
     mw.onmessage = function(e) {
@@ -777,18 +786,18 @@ function mw_client(userInit = function(mw) {
  
         // TODO: More code here.
         console.log('MW unsubscribing to ' +
-                    mw.subscriptions[sourceId].tagOrJavaScriptSrc);
+                    mw.subscriptions[sourceId].shortName);
 
         // TODO: remove the <script> if there is one.
 
-        if(mw.removeCalls[sourceId] !== undefined) {
+        if(mw.cleanupCalls[sourceId] !== undefined) {
             // The user is not required to define a cleanup function.
             // Look how easy it is to pass the arguments.
-            mw.removeCalls[sourceId](...arguments);
+            mw.cleanupCalls[sourceId](...arguments);
         }
 
         delete mw.recvCalls[sourceId];
-        delete mw.removeCalls[sourceId];
+        delete mw.cleanupCalls[sourceId];
         delete mw.subscriptions[sourceId];
 
         mw.printSubscriptions();
@@ -806,7 +815,7 @@ function mw_client(userInit = function(mw) {
             else return 'writing';
         }
         if(type.length === 0)
-            return 'unsubscribed';
+            return 'not subscribed';
         return type;
     };
 
@@ -868,7 +877,6 @@ function mw_client(userInit = function(mw) {
 
         console.log('MW got removeSubscription ' + sourceId);
         mw.unsubscribe(sourceId);
-
     });
 
 
