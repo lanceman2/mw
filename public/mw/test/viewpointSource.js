@@ -8,6 +8,8 @@
 
     var opts = mw_getScriptOptions();
 
+    opts.mw.subscribeAll = false;
+
     // Our very simple test world:
     mw_addActor(opts.prefix+'../examples/plane.x3d');
     mw_addActor(opts.prefix+'../examples/teapot.x3d');

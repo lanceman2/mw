@@ -505,8 +505,10 @@ function mw_client(userInit = function(mw) {
     mw.SourceCount = 0;
     mw.CreateSourceFuncs = {};
     mw.CleanupSourceFuncs = {};
-    mw.subscribeAll = true;
+    // TODO: this is a very dumb subscription policy:
+    mw.subscribeAll = true; // all but the sources we provide.
     mw.subscriptions = {};
+
 
     mw.on = function(name, func) {
 
@@ -538,17 +540,24 @@ function mw_client(userInit = function(mw) {
 
         // TODO: A simple policy for now, needs to be expanded.
 
-        if(mw.Sources[sourceId] !== undefined)
-            // We are not the source of this subscription.
+        if(mw.Sources[sourceId] !== undefined ||
+            // We are the source of this subscription.
+            mw.subscribeAll === false
+            // dumb policy flag.  TODO more code here
+            )
             return false; // do not subscribe
 
         return true; // subscribe
     };
 
 
+    // Subscribe if we can and should.
     mw._checkSubscribe = function(sourceId) {
 
         // tag is the server source ID (like '21').
+
+        // Subscription Debug spew
+        mw.printSubscriptions();
 
         if(mw.subscriptions[sourceId] === undefined
             // We did not get the 'newSubscription' yet.
@@ -576,7 +585,7 @@ function mw_client(userInit = function(mw) {
                 ];
             // Tell the server to send this subscription to us.
             mw._emit('subscribe', sourceId);
-            printSubscriptions();
+            mw.printSubscriptions();
             return;
         }
 
@@ -590,7 +599,7 @@ function mw_client(userInit = function(mw) {
                 // Tell the server to send this subscription to us.
                 mw._emit('subscribe', sourceId);
 
-                printSubscriptions();
+                mw.printSubscriptions();
             },  mw.subscriptions[sourceId]/*mw_addActor() options*/
         );
     };
@@ -762,60 +771,70 @@ function mw_client(userInit = function(mw) {
         }
     );
 
+    // For Client code initiated unsubscribe.  The server sends
+    // 'removeSubscription' events for when subscription become unavailable.
     mw.unsubscribe = function(sourceId) {
  
         // TODO: More code here.
-        console.log('MW unsubscribed to ' +
+        console.log('MW unsubscribing to ' +
                     mw.subscriptions[sourceId].tagOrJavaScriptSrc);
+
+        // TODO: remove the <script> if there is one.
+
+        if(mw.removeCalls[sourceId] !== undefined) {
+            // The user is not required to define a cleanup function.
+            // Look how easy it is to pass the arguments.
+            mw.removeCalls[sourceId](...arguments);
+        }
+
+        delete mw.recvCalls[sourceId];
+        delete mw.removeCalls[sourceId];
+        delete mw.subscriptions[sourceId];
+
+        mw.printSubscriptions();
+    };
+
+
+    mw._subscribeType = function(id) {
+
+        // (unsubscribed), (reading), (writing), or (reading/writing)
+        var type = '';
+        if(mw.recvCalls[id] !== undefined)
+            type = 'reading';
+        if(mw.Sources[id] !== undefined) {
+            if(type.length > 0) return 'reading/writing';
+            else return 'writing';
+        }
+        if(type.length === 0)
+            return 'unsubscribed';
+        return type;
     };
 
 
     // This long function just spews for debugging and does nothing
     // else.
-    function printSubscriptions() {
+    mw.printSubscriptions = function() {
 
         // First print this mw clients subscriptions sinks.
         var notGotOne = true;
 
         Object.keys(mw.subscriptions).forEach(function(id) {
 
-            if(mw.recvCalls[id] !== undefined) {
-                if(notGotOne) {
-                    console.log('Mw  This client (of ' + mw.url +
-                            ') currently reading subscriptions:');
-                    notGotOne = false;
-                }
-                // mw.recvCalls[sourceId] will be defined if and only if
-                // we are subscribed.
-                console.log('   ' + mw.subscriptions[id].shortName);
+            if(notGotOne) {
+                console.log('Mw server ' + mw.url +
+                        ' current subscriptions:');
+                notGotOne = false;
             }
+            // mw.recvCalls[sourceId] will be defined if and only if
+            // we are subscribed.
+            console.log('   "' + mw.subscriptions[id].shortName +
+                    '" (' + mw._subscribeType(id) + ')');
         });
 
         if(notGotOne)
-            console.log('Mw  This client (of ' + mw.url +
-                    ') Reads NO current subscriptions');
-
-        // Recycle this flag for printing subscriptions we are writing.
-        notGotOne = true;
-
-        Object.keys(mw.subscriptions).forEach(function(id) {
-
-            if(mw.Sources[id] !== undefined) {
-                if(notGotOne) {
-                    console.log('Mw  This client (of ' + mw.url +
-                            ') currently is writing subscriptions:');
-                    notGotOne = false;
-                }
-                // mw.recvCalls[sourceId] will be defined if and only if
-                // we are subscribed.
-                console.log('   ' + mw.subscriptions[id].shortName);
-            }
-        });
-
-        if(notGotOne)
-            console.log('Mw  This client (of ' + mw.url +
-                    ') Writes NO current subscriptions');
-    }
+            console.log('Mw server ' + mw.url +
+                    ' Has NO current subscriptions available');
+     };
 
 
     // 'newSubscription' Sent to this client when a source becomes
@@ -848,20 +867,8 @@ function mw_client(userInit = function(mw) {
     mw.on('removeSubscription', function(sourceId) {
 
         console.log('MW got removeSubscription ' + sourceId);
+        mw.unsubscribe(sourceId);
 
-        // TODO: remove the <script> if there is one.
-
-        if(mw.removeCalls[sourceId] !== undefined) {
-            // The user is not required to define a cleanup function.
-            // Look how easy it is to pass the arguments.
-            mw.removeCalls[sourceId](...arguments);
-        }
-
-        delete mw.recvCalls[sourceId];
-        delete mw.removeCalls[sourceId];
-        delete mw.subscriptions[sourceId];
-
-        printSubscriptions();
     });
 
 

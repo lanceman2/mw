@@ -55,7 +55,7 @@
     // subscriptions.  You may not use numbers as a descriptor
     // (not like '21').  Numbers can only be used for particular
     // subscriptions (IDs) after the server sets them up.
-    mw.recvPayload('moveAvator', 
+    mw.recvPayload('moveViewpointAvator', 
 
         // function - What to do with the payload: Move the avatar.
         // avatarMoveId is the server service subscription ID.
@@ -77,8 +77,8 @@
 
     // We tell the server that we want an Avatar file to represent us on
     // the other clients
-    mw.createSource('avatar',/*shortName*/
-        'user avatar'/*description*/,
+    mw.createSource('Add Avatar',/*shortName*/
+        'user viewpoint avatar'/*description*/,
         // 'addAvator' is association to the sink call to
         // mw.recvPayload('addAvator', ...) above.
         // This is the magic that connects sendPayload() to its
@@ -105,9 +105,9 @@
             // viewpoint The positioning of the Avatar depends on the
             // Avatar being loaded, therefore this is nested under the
             // Avatar setup callback.
-            mw.createSource('move_avator',/*shortName*/
-                'avator body position as 3 pos and 4 rot'/*description*/,
-                'moveAvator'/*function name (or url of javaScript)*/,
+            mw.createSource('Move Viewpoint Avator',/*shortName*/
+                'avator viewpoint position as 3 pos and 4 rot'/*description*/,
+                'moveViewpointAvator'/*function name (or url of javaScript)*/,
                 function(avatarMoveId, shortName) {
 
                     // This is the "move avatar" source function.
