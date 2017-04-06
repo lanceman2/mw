@@ -51,6 +51,10 @@
     // Called to receive function for sendPayload(avatarMoveId, avatarId,
     //   e.position, e.orientation);
     // from another client calling far below here in this file.
+    // 'moveAvator' is a subscription descriptor for a class or
+    // subscriptions.  You may not use numbers as a descriptor
+    // (not like '21').  Numbers can only be used for particular
+    // subscriptions (IDs) after the server sets them up.
     mw.recvPayload('moveAvator', 
 
         // function - What to do with the payload: Move the avatar.
@@ -79,8 +83,8 @@
         // mw.recvPayload('addAvator', ...) above.
         // This is the magic that connects sendPayload() to its
         // corresponding recvPayload().
-        'addAvator'/* the recv function name or url to javaScript
-                        * receiver code (not url in this case) */,
+        'addAvator'/* the recvPayload function name or url to javaScript
+                    * file receiver code (not url in this case) */,
         function(avatarId, shortName) {
 
             // This is the avatar source function.

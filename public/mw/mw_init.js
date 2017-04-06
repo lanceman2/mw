@@ -529,14 +529,95 @@ function mw_client(userInit = function(mw) {
         mw.send('P' + id + '=' + JSON.stringify({ args: args }));
     };
 
-    mw.recvPayload = function(serverSourceId, recvFunc = null,
+    // TODO: cleanup the naming of thing private and public.
+
+
+    // Do we subcribe? Return true or false
+    // TODO: move policy stuff.
+    mw._checkSubscriptionPolicy = function(sourceId) {
+
+        // TODO: A simple policy for now, needs to be expanded.
+
+        if(mw.Sources[sourceId] !== undefined)
+            // We are not the source of this subscription.
+            return false; // do not subscribe
+
+        return true; // subscribe
+    };
+
+
+    mw._checkSubscribe = function(sourceId) {
+
+        // tag is the server source ID (like '21').
+
+        if(mw.subscriptions[sourceId] === undefined
+            // We did not get the 'newSubscription' yet.
+            || !mw._checkSubscriptionPolicy(sourceId)
+            // Policy rejects this subscription.
+            || mw.recvCalls[sourceId] !== undefined
+            // We are subscribed already
+                )
+            return;
+
+
+        if(mw.recvCalls[mw.subscriptions[sourceId].tagOrJavaScriptSrc]
+                !== undefined) {
+
+            // We have a subscription descriptor recvPayload() callback
+            // setup.  Now setup the callbacks for this particular
+            // server subscription ID.
+            mw.recvCalls[sourceId] =
+                mw.recvCalls[
+                    mw.subscriptions[sourceId].tagOrJavaScriptSrc
+                ];
+            mw.removeCalls[sourceId] =
+                mw.removeCalls[
+                    mw.subscriptions[sourceId].tagOrJavaScriptSrc
+                ];
+            // Tell the server to send this subscription to us.
+            mw._emit('subscribe', sourceId);
+            printSubscriptions();
+            return;
+        }
+
+        // else We have javaScript to that will mw.recvPayload()
+
+        mw_addActor(mw.subscriptions[sourceId].tagOrJavaScriptSrc,
+            function() {
+                console.log('MW subscribed to ' +
+                mw.subscriptions[sourceId].tagOrJavaScriptSrc);
+
+                // Tell the server to send this subscription to us.
+                mw._emit('subscribe', sourceId);
+
+                printSubscriptions();
+            },  mw.subscriptions[sourceId]/*mw_addActor() options*/
+        );
+    };
+
+
+    // This may get called with a tag (like '21'), an ID from the server
+    // (counter) or with tag replaced by any descriptive string like
+    // 'avatar' or 'moveAvatar'.  When the descriptive form is used the
+    // callbacks are used with any subscriptions ('newSubscription') that
+    // come in with a tagOrJavaScriptSrc value that is the same as the
+    // descriptor (tag) string.
+    mw.recvPayload = function(tag, recvFunc = null,
             removeFunc = null) {
 
-        mw.recvCalls[serverSourceId] = recvFunc;
-        mw.removeCalls[serverSourceId] = removeFunc;
+        // Log the callbacks.
+        mw.recvCalls[tag] = recvFunc;
+        if(removeFunc !== null)
+            mw.removeCalls[tag] = removeFunc;
 
-        if(mw.subscriptions[sourceId])
-            mw._emit('subscribe', serverSourceId);
+        // Subscribe if things are setup for it.
+        if(mw.subscriptions[tag] !== undefined)
+            mw._checkSubscribe(tag);
+        else
+            mw_assert(isNaN(parseInt(tag, 10)),
+                    'mw.recvPayload("' + tag +
+                    '") bad subsciption descriptor "' +
+                    tag + '"');
     };
 
 
@@ -550,8 +631,8 @@ function mw_client(userInit = function(mw) {
         if(message.substr(0, 1) === 'P') {
 
             // The message should be of the form: 'P343=' + jsonString
-            // where 343 is an example source ID.
-            // An example of a mininum message would be like 'P2={}'
+            // where 343 is an example source ID.  An example of a mininum
+            // message would be like 'P2={}'
             var idLen = 1;
             var stop = message.length - 3;
             // find a '=' so the ID is before it.
@@ -573,7 +654,10 @@ function mw_client(userInit = function(mw) {
                     '" not found for message from ' + mw.url + '=' +
                     '\n  ' + e.data);
 
-            (mw.recvCalls[sourceId])(...obj.args);
+            // There is an option to not have a callback to receive the
+            // payload with mw.recvCalls === null.
+            if(mw.recvCalls !== null)
+                (mw.recvCalls[sourceId])(...obj.args);
 
             return;
         }
@@ -685,42 +769,6 @@ function mw_client(userInit = function(mw) {
                     mw.subscriptions[sourceId].tagOrJavaScriptSrc);
     };
 
-    mw.subscribe = function(sourceId) {
-
-        mw_assert(mw.subscriptions[sourceId] !== undefined, 'subscription(' +
-                    sourceId + ') is invalid');
-
-        if(mw.subscriptions[sourceId] !== undefined) {
-
-            // Did the code already have a recvPayload function set.
-            if(mw.recvCalls[mw.subscriptions[sourceId].tagOrJavaScriptSrc] !== undefined) {
- 
-                console.log('MW subscribing to ' +
-                    mw.subscriptions[sourceId].shortName +
-                    ' via a built-in mw.recvPayload() callback' );
-
-                // All mw.recvPayload() with this sourceId will now call
-                // a function based on example like:  mw.recvPayload('moveAvator',
-                // function() { }, function() {})  
-                mw.recvCalls[sourceId] = mw.recvCalls[mw.subscriptions[sourceId].tagOrJavaScriptSrc];
-                printSubscriptions();
-                return;
-            }
-
-            // Else we add javaScript code from a url.
-            console.log('MW subscribing to ' +
-                    shortName + ' via javaScript src=' +
-                    mw.subscriptions[sourceId].tagOrJavaScriptSrc);
-
-            mw_addActor(mw.subscriptions[sourceId].tagOrJavaScriptSrc,
-                function() {
-                    console.log('MW subscribed to ' +
-                    mw.subscriptions[sourceId].tagOrJavaScriptSrc);
-                    printSubscriptions();
-                },  mw.subscriptions[sourceId]);
-        }
-    };
-
 
     // This long function just spews for debugging and does nothing
     // else.
@@ -775,37 +823,25 @@ function mw_client(userInit = function(mw) {
     // we just connected to the server or the source was just added to the
     // server by this or other client.
     mw.on('newSubscription', /*received from the server*/
-            function(sourceId, shortName,
-                description, tagOrJavaScriptSrc) {
+        function(sourceId, shortName,
+            description, tagOrJavaScriptSrc) {
 
-                console.log('MW got newSubscription  advertisement ' +
+            console.log('MW got newSubscription  advertisement ' +
                     shortName + '\n  mw.subscribeAll=' + mw.subscribeAll);
 
-                // Add this to the list of things that we can subscribe to
-                // whither we subscribe to it or not.
-                mw.subscriptions[sourceId] = {
+            // Add this to the list of things that we can subscribe to
+            // whither we subscribe to it or not.
+            mw.subscriptions[sourceId] = {
  
-                    mw: mw,
-                    sourceId: sourceId, // server source ID
-                    shortName: shortName,
-                    description: description,
-                    tagOrJavaScriptSrc: tagOrJavaScriptSrc // TODO: add a function call option?
-                    // instead of loading a javaScript file or both?
-                };
+                mw: mw,
+                sourceId: sourceId, // server source ID
+                shortName: shortName,
+                description: description,
+                tagOrJavaScriptSrc: tagOrJavaScriptSrc
+            };
 
-                // TODO: add a subscription user selection system that
-                // configures what to do with this service: subscribe or
-                // ignore it.
-
-                if(mw.subscribeAll &&
-                        // We do not subscribe if this client is the source.
-                        mw.Sources[sourceId] === undefined)
-                    mw.subscribe(sourceId);
-                else {
-                    console.log('MW did not subscribe to ' +
-                        shortName);
-                    printSubscriptions();
-                }
+            // Subscribe or not
+            mw._checkSubscribe(sourceId);
         }
     );
 
