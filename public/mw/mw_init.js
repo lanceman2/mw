@@ -633,10 +633,10 @@ function mw_client(userInit = function(mw) {
 
     // Sets the mw.cleanupCalls function after the mw.recvCalls function is
     // called.
-    mw.setUnsubscribeCleanup(sourceId, removeFunc) {
+    mw.setUnsubscribeCleanup = function(sourceId, removeFunc) {
 
         mw.cleanupCalls[sourceId] = removeFunc;
-    }
+    };
 
 
     mw.onmessage = function(e) {
@@ -793,7 +793,7 @@ function mw_client(userInit = function(mw) {
         if(mw.cleanupCalls[sourceId] !== undefined) {
             // The user is not required to define a cleanup function.
             // Look how easy it is to pass the arguments.
-            mw.cleanupCalls[sourceId](...arguments);
+            mw.cleanupCalls[sourceId].apply(mw, arguments);
         }
 
         delete mw.recvCalls[sourceId];
