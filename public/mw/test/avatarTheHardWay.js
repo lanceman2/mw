@@ -19,7 +19,7 @@
     var trans = { };
 
     function avatarSetPosRot(node, pos, rot) {
-            
+
         node.setAttribute('translation',
                 pos.x + ' ' + pos.y + ' ' + pos.z);
         node.setAttribute('rotation',
@@ -75,13 +75,12 @@
     );
 
 
-    // Called to receive function for sendPayload(avatarMoveId, avatarId,
-    //   e.position, e.orientation);
-    // from another client calling far below here in this file.
-    // 'moveAvator' is a subscription descriptor for a class or
-    // subscriptions.  You may not use numbers as a descriptor
-    // (not like '21').  Numbers can only be used for particular
-    // subscriptions (IDs) after the server sets them up.
+    // Called to receive from sendPayload(avatarMoveId, avatarMoveId,
+    //   avatarId, e.position, e.orientation); from another client calling
+    // far below here in this file.  'moveAvator' is a subscription
+    // descriptor for a class or subscriptions.  You may not use numbers
+    // as a descriptor (not like '21').  Numbers can only be used for
+    // particular subscriptions (IDs) after the server sets them up.
     mw.recvPayload('moveViewpointAvator', 
 
         // function - What to do with the payload: Move the avatar.
@@ -132,15 +131,20 @@
                 'moveViewpointAvator'/*function name (or url of javaScript)*/,
                 function(avatarMoveId, shortName) {
 
+                    // Wrapper utility function with sends the payload
+                    // called twice below.
+                    function sendPayload(pos, rot) {
+                        mw.sendPayload(/*where to send =*/avatarMoveId,
+                            /*what to send =*/avatarMoveId, // and
+                            avatarId, pos, rot);
+                    }
+
                     // This is the "move avatar" source function.
                     // We have approval from the server now we setup a
                     // handler.
 
                     // Send initial state the subscribers.
-                    mw.sendPayload(/*where to send =*/avatarMoveId,
-                            /*what to send =*/avatarMoveId,
-                            avatarId,
-                            mw_getCurrentViewpoint().position,
+                    sendPayload(mw_getCurrentViewpoint().position,
                             mw_getCurrentViewpoint().orientation);
 
                     // Send this each time we change the viewpoint.
@@ -148,13 +152,8 @@
                     mw_getCurrentViewpoint().addEventListener(
                             'viewpointChanged',
                         function(e) {
-                    
-                            // Send this to the subscribers in this
-                            // handler.
-                            mw.sendPayload(/*where to send =*/avatarMoveId,
-                                    /*what to send =*/avatarMoveId,
-                                    avatarId,
-                                    e.position, e.orientation);
+
+                            sendPayload(e.position, e.orientation);
                         }
                     );
                 }

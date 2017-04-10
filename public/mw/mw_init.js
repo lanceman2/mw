@@ -523,7 +523,7 @@ function mw_client(userInit = function(mw) {
     };
 
     // Sends through the server to clients 
-    mw.sendPayload = function(serverSourceId, data) {
+    mw.sendPayload = function() {
 
         var args = [].slice.call(arguments);
         var id = args.shift();
@@ -617,19 +617,41 @@ function mw_client(userInit = function(mw) {
     mw.recvPayload = function(tag, recvFunc = null,
             cleanupFunc = null) {
 
+        mw_assert(mw.recvCalls[tag] === undefined &&
+                mw.cleanupCalls[tag] === undefined,
+            'mw.recvPayload(tag="'+ tag +
+            '") called with tag that was used before:\n   ' +
+            '   mw.recvPayload(' + tag + ',' +
+            '   ' + recvFunc + ',' +
+            '\n   ' + cleanupFunc + ')');
+
         // Log the callbacks.
         mw.recvCalls[tag] = recvFunc;
         if(cleanupFunc !== null)
             mw.cleanupCalls[tag] = cleanupFunc;
 
         // Subscribe if things are setup for it.
-        if(mw.subscriptions[tag] !== undefined)
+        if(mw.subscriptions[tag] !== undefined) {
+            // This tag is a sourceId
             mw._checkSubscribe(tag);
-        else
+            return;
+        } else
             mw_assert(isNaN(parseInt(tag, 10)),
                     'mw.recvPayload("' + tag +
                     '") bad subsciption descriptor "' +
                     tag + '"');
+
+        // This tag is a descriptor string.  See if we have
+        // a subscription that matches already.
+
+        // TODO: this is a linear search OMG:
+        Object.keys(mw.subscriptions).forEach(function(sourceId) {
+
+            if(mw.subscriptions[sourceId].tagOrJavaScriptSrc === tag) {
+                mw._checkSubscribe(sourceId);
+                return;
+            }
+        });
     };
 
     // Sets the mw.cleanupCalls function after the mw.recvCalls function is
@@ -745,7 +767,8 @@ function mw_client(userInit = function(mw) {
         mw.CleanupSourceFuncs[clientSourceId] = cleanupFunc;
 
         // Ask the server to create a new source of data
-        mw._emit('createSource', clientSourceId, shortName, description, tagOrJavaScriptSrc);
+        mw._emit('createSource', clientSourceId, shortName,
+                description, tagOrJavaScriptSrc);
     };
 
     mw.on('createSource', /*received from the server*/
@@ -800,7 +823,8 @@ function mw_client(userInit = function(mw) {
         }
 
         delete mw.recvCalls[sourceId];
-        delete mw.cleanupCalls[sourceId];
+        if(mw.cleanupCalls[sourceId] !== undefined)
+            delete mw.cleanupCalls[sourceId];
         delete mw.subscriptions[sourceId];
 
         mw.printSubscriptions();
