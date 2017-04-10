@@ -556,17 +556,17 @@ function mw_client(userInit = function(mw) {
 
         // tag is the server source ID (like '21').
 
-        // Subscription Debug spew
-        mw.printSubscriptions();
-
         if(mw.subscriptions[sourceId] === undefined
             // We did not get the 'newSubscription' yet.
             || !mw._checkSubscriptionPolicy(sourceId)
             // Policy rejects this subscription.
             || mw.recvCalls[sourceId] !== undefined
             // We are subscribed already
-                )
+                ) {
+            // Subscription Debug spew
+            mw.printSubscriptions();
             return;
+        }
 
 
         if(mw.recvCalls[mw.subscriptions[sourceId].tagOrJavaScriptSrc]
@@ -579,14 +579,15 @@ function mw_client(userInit = function(mw) {
                 mw.recvCalls[
                     mw.subscriptions[sourceId].tagOrJavaScriptSrc
                 ];
-            var removeCall = mw.cleanupCalls[
+            var cleanupCall = mw.cleanupCalls[
                     mw.subscriptions[sourceId].tagOrJavaScriptSrc
                 ];
-            if(mw.removeCall !== undefined)
-                mw.cleanupCalls[sourceId] = removeCall;
+            if(cleanupCall !== undefined)
+                mw.cleanupCalls[sourceId] = cleanupCall;
             
             // Tell the server to send this subscription to us.
             mw._emit('subscribe', sourceId);
+
             mw.printSubscriptions();
             return;
         }
@@ -614,12 +615,12 @@ function mw_client(userInit = function(mw) {
     // come in with a tagOrJavaScriptSrc value that is the same as the
     // descriptor (tag) string.
     mw.recvPayload = function(tag, recvFunc = null,
-            removeFunc = null) {
+            cleanupFunc = null) {
 
         // Log the callbacks.
         mw.recvCalls[tag] = recvFunc;
-        if(removeFunc !== null)
-            mw.cleanupCalls[tag] = removeFunc;
+        if(cleanupFunc !== null)
+            mw.cleanupCalls[tag] = cleanupFunc;
 
         // Subscribe if things are setup for it.
         if(mw.subscriptions[tag] !== undefined)
@@ -791,6 +792,8 @@ function mw_client(userInit = function(mw) {
         // TODO: remove the <script> if there is one.
 
         if(mw.cleanupCalls[sourceId] !== undefined) {
+            console.log('MW calling cleanupCall(sourceId=' +
+                    sourceId + ')');
             // The user is not required to define a cleanup function.
             // Look how easy it is to pass the arguments.
             mw.cleanupCalls[sourceId].apply(mw, arguments);
