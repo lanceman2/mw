@@ -1,10 +1,5 @@
-// This does the same thing that avatarTheHardWay.js does without extra
-// data and if() statements by nesting the callback function dependences,
-// building in the load dependencies naturally. For example moving the
-// avatar depends on loading the avatar so we do not setup the move Avatar
-// callbacks in the add Avatar callback.  Nesting callbacks in callbacks
-// in callbacks ... etc, tends to be a natural way to code in "dependency
-// trees" in javaScript.
+// Nesting callbacks in callbacks in callbacks ... etc, tends to be a
+// natural way to code in "callback dependency trees" in javaScript.
 
 (function() {
 
@@ -17,9 +12,9 @@
 
     mw_addActor(); // flush the above mw_addActor() calls.
 
-    // The callback to add another users Avatar The function get called
-    // with the arguments that are sent in sendPayload(avatarId,
-    // avatarUrl) on another client below.
+    // The callback to add another users Avatar: The function gets called
+    // with the arguments that are sent in mw.sendPayload(avatarId, ...)
+    // on another client far below here.
     mw.recvPayload('addAvator',
 
         // function - What to do with the payload:
@@ -30,26 +25,28 @@
 
                 // Set the cleanup function after we get the actor model
                 // loaded, now:
-                var cleanup = function(sourceId) {
+                mw.setUnsubscribeCleanup(avatarId, function(sourceId) {
 
                     if(transformNode !== undefined) {
                         transformNode.parentNode.removeChild(transformNode);
                         delete transformNode;
                     }
-                };
+                });
 
-                //mw.setUnsubscribeCleanup(avatarMoveId, cleanup);
-                mw.setUnsubscribeCleanup(avatarId, cleanup);
+                // Called to receive data from a corresponding
+                // sendPayload() call below.  from another client calling
+                // far below here in this file.  'moveViewpointAvator_*'
+                // is a subscription descriptor for a class of
+                // subscriptions.  You may not use numbers as a descriptor
+                // (not like '21').  Numbers can only be used for
+                // particular subscriptions (IDs) after the server sets
+                // them up.
+                //
+                // The first argument MUST be a unique to this excitation
+                // context because the corresponding callback that this
+                // sets is unique to this excitation context. 
 
-                // Called to receive data from sendPayload(avatarMoveId,
-                //   avatarMoveId, avatarId, e.position, e.orientation);
-                // from another client calling far below here in this
-                // file.  'moveAvator' is a subscription descriptor for a
-                // class of subscriptions.  You may not use numbers as a
-                // descriptor (not like '21').  Numbers can only be used
-                // for particular subscriptions (IDs) after the server
-                // sets them up.
-                mw.recvPayload('moveViewpointAvator_' + avatarId, 
+                mw.recvPayload('moveViewpointAvator_' + avatarId,
 
                     // function - What to do with the payload: Move the
                     // avatar.  avatarMoveId is the server service
@@ -69,7 +66,8 @@
             }, {
                 containerNodeType: 'Transform'
             });
-        });
+        }
+    );
 
 
     // We tell the server that we want an Avatar file to represent us on
@@ -100,9 +98,9 @@
                         opts.prefix + '../examples/gnome.x3d');
 
             // We move "our" avatar on the other clients by sending our
-            // viewpoint The positioning of the Avatar depends on the
+            // viewpoint. The positioning of the Avatar depends on the
             // Avatar being loaded, therefore this is nested under the
-            // Avatar setup callback.
+            // Avatar model loading callback.
  
             mw.createSource('Move Viewpoint Avator',/*shortName*/
                 'avator viewpoint position as 3 pos and 4 rot'/*description*/,
