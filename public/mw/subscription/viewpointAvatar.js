@@ -21,6 +21,10 @@
         // Add an avatar.  avatarId is the server service subscription ID.
         function(avatarId, avatarUrl) {
 
+            // Select avatar based on client ID mw.Id which is from
+            // a counter on the server.
+            var avators = [ ];
+
             mw_addActor(avatarUrl, function(transformNode) {
 
                 // Set the cleanup function after we get the actor model
@@ -50,7 +54,7 @@
                     // function - What to do with the payload: Move the
                     // avatar.  avatarMoveId is the server service
                     // subscription ID.
-                    function(avatarMoveId, _avatarId, pos, rot) {
+                    function(pos, rot) {
 
                         if(transformNode !== undefined) {
 
@@ -107,13 +111,11 @@
                 avatarId/*recvPayload() function name (or url of javaScript)*/,
                 function(avatarMoveId, shortName) {
 
-                    // Wrapper utility function with sends the payload
+                    // Wrapper utility function which sends the payload
                     // called twice below.
                     function sendPayload(pos, rot) {
                         mw.sendPayload(/*where to send =*/avatarMoveId,
-                            /*what to send =*/avatarMoveId, // and
-                            avatarId, 
-                            pos, rot);
+                            /*what to send =*/pos, rot);
                     }
 
                     // This is the "move avatar" source function.
