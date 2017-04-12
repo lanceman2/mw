@@ -3,12 +3,12 @@
 
 (function() {
 
-    var opts = mw_getScriptOptions();
-    var mw = opts.mw;
+    var prefix = mw_getScriptOptions().prefix;
+    var mw = mw_getScriptOptions().mw;
 
     // Our very simple test world:
-    mw_addActor(opts.prefix+'../examples/plane.x3d');
-    mw_addActor(opts.prefix+'../examples/teapot.x3d');
+    mw_addActor(prefix + '../examples/plane.x3d');
+    mw_addActor(prefix + '../examples/teapot.x3d');
 
 
     // TODO: I guess this could be done with a Promise object.
@@ -94,7 +94,7 @@
             // mw.addAvator() on the receiving client end.
             mw.sendPayload(/*where to send =*/avatarId,
                         /*what to send =*/avatarId,
-                        opts.prefix + '../examples/gnome.x3d');
+                        prefix + '../examples/gnome.x3d');
 
             // We move "our" avatar on the other clients by sending our
             // viewpoint. The positioning of the Avatar depends on the
