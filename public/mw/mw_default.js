@@ -13,8 +13,4 @@
     mw_addActor(pre+'examples/plane.x3d');
     mw_addActor(pre+'examples/gnome.x3d');
 
-    // TODO: add navigation following
-
-    mw_addActor(); // flush
-
 })();

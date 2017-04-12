@@ -9,8 +9,6 @@
     mw_addActor(opts.prefix+'../examples/plane.x3d');
     mw_addActor(opts.prefix+'../examples/teapot.x3d');
 
-    mw_addActor(); // flush the above mw_addActor() calls.
-
     // list of avatars gets updated in mw.recvPayload('addAvator', ...)
     // for different avatars.
     var avatars = { };

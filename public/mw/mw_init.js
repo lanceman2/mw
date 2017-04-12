@@ -8,9 +8,6 @@ var _mw = {
 
     connectionCount: 0, // number of times we make a webSocket connection
     client_userInitFunc: null,
-    addActor_blocked: false,
-    actorFiles: [],
-    actorOpts: [],
     mw: {} // list of WebSocket client connections from mw_client()
 };
 
@@ -322,56 +319,29 @@ function mw_getScene() {
 //    3. scriptNode.Dir/url if in a handler in a mw_addActor()
 //       loaded script file
 //
+//  Works with url being an array.
+//
 function mw_addActor(url = null, onload = null, opts = null) {
 
+    mw_assert(url !== null, 'mw_addActor(url = null,,)');
     // TODO: consider adding a query part to the URL
 
     //console.log('mw_addActor(' + url + ', ' + onload, opts);
 
-    if(url === null) {
-        if(_mw.actorFiles.length > 0) {
-            // This is a flush command
-            console.log('MW Actor flushing:' + _mw.actorFiles);
-            mw_addActor(_mw.actorFiles.pop(),function(node) {},
-                    _mw.actorOpts.pop());
-        }
-        // Nothing to flush or we are flushing it already.
-        return;
+    if(url.constructor === Array) {
+        if(url.length > 1) {
+            var len = url.length;
+            while(url.length > 1)
+                _mw_addActor(url.shift(), function(node) {
+                    if(--len === 1)
+                        // Do the last one last.
+                        _mw_addActor(url.shift(), onload, opts);
+                }, opts);
+        } else if(url.length === 1)
+            _mw_addActor(url[0], onload, opts);
+    } else {
+        _mw_addActor(url, onload, opts);
     }
-
-    if(onload === null) {
-        _mw.actorFiles.push(url);
-        _mw.actorOpts.push(opts);
-        return;
-    }
-
-
-    if(_mw.actorFiles.length > 0) {
-
-        // we have a onload.
-
-        console.log('MW Actor loading series: ' +
-                _mw.actorFiles + ',' + url);
-
-        var actorFilesCount = _mw.actorFiles.length;
-        var Url;
-        var Opts;
-        while((Url = _mw.actorFiles.shift())) {
-            Opts = _mw.actorOpts.shift();
-            _mw_addActor(Url, function(node) {
-                    if(--actorFilesCount === 0) {
-                        _mw_addActor(url, onload, opts);
-                    }
-            }, Opts);
-        }
-
-        // _mw.actorFiles.length === 0
-        // _mw.actorOpts.length === 0
-
-        return;
-    }
-
-    _mw_addActor(url, onload, opts);
 }
 
 
@@ -943,11 +913,13 @@ function _mw_init() {
 // Called from body onload event.
 function mw_init() {
 
-    mw_addActor('x3dom/x3dom.css');
-    mw_addActor('x3dom/x3dom.js');
-    mw_addActor('mw_default.css',
-            // So _mw_init() is called after all these
-            // files are loaded.
-            function(node) { _mw_init(); }
+    mw_addActor(
+        [   'x3dom/x3dom.css',
+            'x3dom/x3dom.js',
+            'mw_default.css'
+        ],
+        // So _mw_init() is called after all these
+        // files are loaded.
+        function(node) { _mw_init(); }
     );
 }

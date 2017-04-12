@@ -10,8 +10,8 @@
     mw_addActor(opts.prefix+'../examples/plane.x3d');
     mw_addActor(opts.prefix+'../examples/teapot.x3d');
 
-    mw_addActor(); // flush the above mw_addActor() calls.
 
+    // TODO: I guess this could be done with a Promise object.
     // The callback to add another users Avatar: The function gets called
     // with the arguments that are sent in mw.sendPayload(avatarId, ...)
     // on another client far below here.
@@ -42,9 +42,8 @@
                 // particular subscriptions (IDs) after the server sets
                 // them up.
                 //
-                // The first argument MUST be a unique to this excitation
-                // context because the corresponding callback that this
-                // sets is unique to this excitation context. 
+                // The first argument MUST be a unique to this execution
+                // context. 
 
                 mw.recvPayload('moveViewpointAvator_' + avatarId,
 
